@@ -10,6 +10,7 @@ export interface ParsedFigure {
   id: string;
   caption: string;
   dataUrl: string;
+  dataUrls?: string[];
   altText: string;
   pageNum?: number;
   fileName?: string;

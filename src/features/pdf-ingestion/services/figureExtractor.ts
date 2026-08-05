@@ -17,6 +17,7 @@ export async function extractFiguresFromPdf(
     const page = await pdf.getPage(pageNum);
     const ops = await page.getOperatorList();
     const pageLines = pageLinesMap.find(p => p.pageNum === pageNum)?.lines || [];
+    const pageImageUrls: string[] = [];
 
     for (let i = 0; i < ops.fnArray.length; i++) {
       const fn = ops.fnArray[i];
@@ -27,17 +28,45 @@ export async function extractFiguresFromPdf(
       ) {
         const imgName = ops.argsArray[i][0];
         const dataUrl = await resolveImageDataUrl(page, imgName, pageNum, pageLines);
+        if (dataUrl) {
+          pageImageUrls.push(dataUrl);
+        }
+      }
+    }
 
-        if (!dataUrl) continue;
+    if (pageImageUrls.length === 0) continue;
 
-        // Caption matching heuristic for this page
+    // Check if page contains multiple explicit figure captions for each image
+    const explicitCaptions = findExplicitCaptionsOnPage(pageLines);
+
+    if (pageImageUrls.length > 1 && explicitCaptions.length <= 1) {
+      // Group multiple side-by-side images on the same page under one figure
+      const captionText = findCaptionForPage(pageNum, figureCounter, pageLines);
+      const figId = `fig-${figureCounter}`;
+
+      extractedFigures.push({
+        id: figId,
+        caption: captionText,
+        dataUrl: pageImageUrls[0],
+        dataUrls: pageImageUrls,
+        altText: captionText,
+        pageNum,
+        fileName: `figure-${figureCounter}.png`,
+      });
+
+      figureCounter++;
+    } else {
+      // Create separate figures for each image or matching caption
+      for (let idx = 0; idx < pageImageUrls.length; idx++) {
+        const url = pageImageUrls[idx];
         const captionText = findCaptionForPage(pageNum, figureCounter, pageLines);
         const figId = `fig-${figureCounter}`;
 
         extractedFigures.push({
           id: figId,
           caption: captionText,
-          dataUrl,
+          dataUrl: url,
+          dataUrls: [url],
           altText: captionText,
           pageNum,
           fileName: `figure-${figureCounter}.png`,
@@ -206,4 +235,18 @@ function isHeaderBanner(img: any, pageNum: number, pageLines: TextLine[]): boole
   }
 
   return false;
+}
+
+function findExplicitCaptionsOnPage(pageLines: TextLine[]): string[] {
+  const captions: string[] = [];
+  const figRegex = /^(fig(ure)?\.?\s*\d+[:\.\s].*)/i;
+
+  for (const l of pageLines) {
+    const txt = l.text.trim();
+    if (figRegex.test(txt)) {
+      captions.push(txt);
+    }
+  }
+
+  return captions;
 }

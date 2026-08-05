@@ -28,14 +28,29 @@ export function assembleGalleyHtml(
   // Track placed figures
   const placedFigureIds = new Set<string>();
 
-  const renderFigureHtml = (fig: any) => `
-    <figure id="${fig.id}" class="galley-figure" style="margin: 2rem 0; text-align: center;">
-      <img src="${fig.dataUrl}" alt="${escapeHtml(fig.altText || fig.caption)}" class="galley-figure-img" style="max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);" />
-      <figcaption class="galley-figure-caption" style="margin-top: 0.75rem; font-size: 0.9rem; color: #475569; font-style: italic;">
-        ${escapeHtml(fig.caption)}
-      </figcaption>
-    </figure>
-  `;
+  const renderFigureHtml = (fig: any) => {
+    const urls: string[] = fig.dataUrls && fig.dataUrls.length > 0 ? fig.dataUrls : [fig.dataUrl];
+    const isMultiImage = urls.length > 1;
+
+    const imagesHtml = urls.map((url, idx) => `
+      <img src="${url}" alt="${escapeHtml((fig.altText || fig.caption) + (isMultiImage ? ` (Part ${idx + 1})` : ''))}" class="galley-figure-img" style="${
+        isMultiImage
+          ? 'max-width: 48%; min-width: 240px; height: auto; border-radius: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); flex: 1;'
+          : 'max-width: 100%; height: auto; border-radius: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);'
+      }" />
+    `).join('\n');
+
+    return `
+      <figure id="${fig.id}" class="galley-figure" style="margin: 2rem 0; text-align: center;">
+        <div class="galley-figure-group" style="display: flex; gap: 1rem; justify-content: center; align-items: center; flex-wrap: wrap;">
+          ${imagesHtml}
+        </div>
+        <figcaption class="galley-figure-caption" style="margin-top: 0.75rem; font-size: 0.9rem; color: #475569; font-style: italic;">
+          ${escapeHtml(fig.caption)}
+        </figcaption>
+      </figure>
+    `;
+  };
 
   paper.sections.forEach((sec) => {
     articleBodyHtml += `<section class="galley-section" style="margin-bottom: 1.75rem;">`;
@@ -107,7 +122,8 @@ export function assembleGalleyHtml(
       body { margin: 0; padding: 0; font-family: 'Merriweather', Georgia, serif; line-height: 1.75; color: #1e293b; background: #ffffff; }
       .galley-container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
       .galley-figure { margin: 2rem 0; text-align: center; }
-      .galley-figure-img { max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: inline-block; }
+      .galley-figure-group { display: flex; gap: 1rem; justify-content: center; align-items: center; flex-wrap: wrap; }
+      .galley-figure-img { max-width: 100%; height: auto; border-radius: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: inline-block; }
       .galley-figure-caption { margin-top: 0.75rem; font-size: 0.9rem; color: #475569; font-style: italic; }
       .footnote-ref a { color: #2563eb; text-decoration: none; font-weight: 700; padding: 0 3px; }
       .footnotes { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 2px solid #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
