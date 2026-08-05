@@ -16,9 +16,14 @@ export interface ParsedFigure {
   fileName?: string;
 }
 
+export interface ParagraphItem {
+  text: string;
+  isBlockQuote?: boolean;
+}
+
 export interface PaperSection {
   heading?: string;
-  paragraphs: string[];
+  paragraphs: ParagraphItem[];
 }
 
 export interface ParsedPaper {

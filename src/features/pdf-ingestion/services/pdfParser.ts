@@ -2,12 +2,13 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { FootnoteItem, ParsedPaper, PaperSection, ParsedFigure } from '../../../shared/types/galleyTypes';
 
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { extractFiguresFromPdf } from './figureExtractor';
+import { extractFiguresFromPdf, extractFigureCaptionLineKeys } from './figureExtractor';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface TextLine {
   y: number;
+  minX: number;
   text: string;
 }
 
@@ -30,9 +31,14 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
       for (const item of textContent.items) {
         if ('str' in item) {
           const y = item.transform ? item.transform[5] : 0;
+          const x = item.transform ? item.transform[4] : 0;
           if (!currentGroup || Math.abs(y - currentGroup.y) > 4) {
-            currentGroup = { y, text: '' };
+            currentGroup = { y, minX: x, text: '' };
             lines.push(currentGroup);
+          } else {
+            if (x < currentGroup.minX) {
+              currentGroup.minX = x;
+            }
           }
           currentGroup.text += item.str + ' ';
         }
@@ -64,6 +70,9 @@ function extractStructureFromPageLines(
   let abstract = '';
   const sections: PaperSection[] = [];
   const fnMap = new Map<number, FootnoteItem>();
+  const footnoteLineKeys = new Set<string>();
+
+  const { figureCaptionLineKeys } = extractFigureCaptionLineKeys(pageLines);
 
   // 1. Page 1 Header, Title, Author & Abstract Extraction
   const page1Lines = pageLines[0]?.lines || [];
@@ -102,7 +111,7 @@ function extractStructureFromPageLines(
     let currentFn: FootnoteItem | null = null;
     p.lines.forEach(l => {
       const txt = l.text.trim();
-      if (!txt || l.y < 55 || l.y > 720) return; // Skip running headers/footers
+      if (!txt || l.y < 55 || l.y > 720 || figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) return; // Skip running headers/footers & caption lines
 
       if (l.y < 220) {
         const fnMatch = txt.match(/^(\d{1,3})\s+([A-Z"“'‘\(\[\{].+)/);
@@ -116,8 +125,10 @@ function extractStructureFromPageLines(
             footnoteAnchorId: `fn-${fnId}`,
           };
           fnMap.set(fnId, currentFn);
+          footnoteLineKeys.add(`${p.pageNum}_${l.y}`);
         } else if (currentFn) {
           currentFn.text += ' ' + txt;
+          footnoteLineKeys.add(`${p.pageNum}_${l.y}`);
         }
       }
     });
@@ -125,14 +136,41 @@ function extractStructureFromPageLines(
 
   const sortedFootnotes = Array.from(fnMap.values()).sort((a, b) => a.id - b.id);
 
-  // 3. Body Text & Headings Extraction (220 <= Y <= 720)
+  // 2b. Calculate standard document body left-margin offset
+  const allMinXs: number[] = [];
+  pageLines.forEach(p => {
+    p.lines.forEach(l => {
+      const txt = l.text.trim();
+      if (txt && l.y >= 55 && l.y <= 740 && !footnoteLineKeys.has(`${p.pageNum}_${l.y}`) && !figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) {
+        if (l.minX > 30 && l.minX < 200) {
+          allMinXs.push(l.minX);
+        }
+      }
+    });
+  });
+
+  const standardMargin = allMinXs.length > 0 ? Math.min(...allMinXs) : 72;
+
+  // 3. Body Text & Headings Extraction (55 <= Y <= 740, excluding consumed footnote & caption lines)
   let currentSection: PaperSection = { heading: undefined, paragraphs: [] };
   let currentParagraph = '';
+  let currentIsBlockQuote = false;
+
+  const pushCurrentParagraph = () => {
+    if (currentParagraph.trim()) {
+      currentSection.paragraphs.push({
+        text: currentParagraph.trim(),
+        isBlockQuote: currentIsBlockQuote,
+      });
+      currentParagraph = '';
+      currentIsBlockQuote = false;
+    }
+  };
 
   pageLines.forEach((p, pIdx) => {
     p.lines.forEach(l => {
       const txt = l.text.trim();
-      if (!txt || l.y < 220 || l.y > 720) return;
+      if (!txt || l.y < 55 || l.y > 740 || footnoteLineKeys.has(`${p.pageNum}_${l.y}`) || figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) return;
 
       // Skip Page 1 title/author/abstract lines
       if (pIdx === 0 && (l.y > 550 || txt.toLowerCase().startsWith('abstract') || foundAbstract)) {
@@ -145,15 +183,20 @@ function extractStructureFromPageLines(
                         (txt.length < 55 && txt === txt.toUpperCase() && txt.length > 3);
 
       if (isHeading) {
-        if (currentParagraph.trim()) {
-          currentSection.paragraphs.push(currentParagraph.trim());
-          currentParagraph = '';
-        }
+        pushCurrentParagraph();
         if (currentSection.paragraphs.length > 0 || currentSection.heading) {
           sections.push(currentSection);
         }
         currentSection = { heading: txt, paragraphs: [] };
       } else {
+        const isIndented = l.minX >= standardMargin + 18;
+
+        if (currentParagraph && currentIsBlockQuote !== isIndented) {
+          pushCurrentParagraph();
+        }
+
+        currentIsBlockQuote = isIndented;
+
         if (currentParagraph && !currentParagraph.endsWith('-')) {
           currentParagraph += ' ' + txt;
         } else if (currentParagraph.endsWith('-')) {
@@ -163,17 +206,14 @@ function extractStructureFromPageLines(
         }
 
         // Paragraph break heuristic on sentence end
-        if (txt.length < 50 && (txt.endsWith('.') || txt.endsWith(':') || txt.endsWith(')'))) {
-          currentSection.paragraphs.push(currentParagraph.trim());
-          currentParagraph = '';
+        if (!isIndented && txt.length < 50 && (txt.endsWith('.') || txt.endsWith(':') || txt.endsWith(')'))) {
+          pushCurrentParagraph();
         }
       }
     });
   });
 
-  if (currentParagraph.trim()) {
-    currentSection.paragraphs.push(currentParagraph.trim());
-  }
+  pushCurrentParagraph();
   if (currentSection.paragraphs.length > 0 || currentSection.heading) {
     sections.push(currentSection);
   }
@@ -188,7 +228,7 @@ function extractStructureFromPageLines(
     title: title || fileName.replace(/\.pdf$/i, ''),
     authors: authors.length > 0 ? authors : ['Academic Author(s)'],
     abstract,
-    sections: finalSections.length > 0 ? finalSections : [{ heading: 'Article Body', paragraphs: [fileName] }],
+    sections: finalSections.length > 0 ? finalSections : [{ heading: 'Article Body', paragraphs: [{ text: fileName, isBlockQuote: false }] }],
     footnotes: sortedFootnotes,
     figures,
     rawText: pageLines.map(p => p.lines.map(l => l.text).join('\n')).join('\n\n'),
@@ -201,12 +241,12 @@ function injectBodyFootnoteSuperscripts(sections: PaperSection[], footnotes: Foo
   return sections.map(sec => ({
     heading: sec.heading,
     paragraphs: sec.paragraphs.map(p => {
-      let formatted = p;
+      let formatted = p.text;
       footnotes.forEach(fn => {
         const regex = new RegExp(`(\\b|\\.)\\s*\\[?${fn.id}\\]?\\s+(?=[A-Z"“'‘\\(\\s]|$)`, 'g');
         formatted = formatted.replace(regex, `$1 <sup id="${fn.refAnchorId}" class="footnote-ref" role="doc-noteref"><a href="#${fn.footnoteAnchorId}">${fn.label}</a></sup> `);
       });
-      return formatted;
+      return { text: formatted, isBlockQuote: p.isBlockQuote };
     }),
   }));
 }
@@ -219,7 +259,7 @@ function fallbackPlainExtract(fileName: string, fileSize: number, rawText: strin
     title: fileName.replace(/\.pdf$/i, ''),
     authors: ['Academic Author(s)'],
     abstract: '',
-    sections: [{ heading: 'Paper Body', paragraphs: [rawText] }],
+    sections: [{ heading: 'Paper Body', paragraphs: [{ text: rawText, isBlockQuote: false }] }],
     footnotes: [],
     figures: [],
     rawText,

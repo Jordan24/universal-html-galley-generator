@@ -12,6 +12,7 @@ export async function extractFiguresFromPdf(
 ): Promise<ParsedFigure[]> {
   const extractedFigures: ParsedFigure[] = [];
   let figureCounter = 1;
+  const { captionsByPage } = extractFigureCaptionLineKeys(pageLinesMap);
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
@@ -41,7 +42,7 @@ export async function extractFiguresFromPdf(
 
     if (pageImageUrls.length > 1 && explicitCaptions.length <= 1) {
       // Group multiple side-by-side images on the same page under one figure
-      const captionText = findCaptionForPage(pageNum, figureCounter, pageLines);
+      const captionText = findCaptionForPage(pageNum, figureCounter, pageLines, captionsByPage);
       const figId = `fig-${figureCounter}`;
 
       extractedFigures.push({
@@ -59,7 +60,7 @@ export async function extractFiguresFromPdf(
       // Create separate figures for each image or matching caption
       for (let idx = 0; idx < pageImageUrls.length; idx++) {
         const url = pageImageUrls[idx];
-        const captionText = findCaptionForPage(pageNum, figureCounter, pageLines);
+        const captionText = findCaptionForPage(pageNum, figureCounter, pageLines, captionsByPage);
         const figId = `fig-${figureCounter}`;
 
         extractedFigures.push({
@@ -202,7 +203,75 @@ function convertPdfImageData(ctx: CanvasRenderingContext2D, img: any): ImageData
   return null;
 }
 
-function findCaptionForPage(pageNum: number, figIndex: number, pageLines: TextLine[]): string {
+export function extractFigureCaptionLineKeys(pageLinesMap: { pageNum: number; lines: { y: number; text: string }[] }[]): {
+  figureCaptionLineKeys: Set<string>;
+  captionsByPage: Map<number, Map<number, string>>;
+} {
+  const figureCaptionLineKeys = new Set<string>();
+  const captionsByPage = new Map<number, Map<number, string>>();
+
+  pageLinesMap.forEach(p => {
+    let currentFigNum: number | null = null;
+    let currentCaption = '';
+    const pageCapMap = new Map<number, string>();
+
+    p.lines.forEach((l) => {
+      const txt = l.text.trim();
+      if (!txt || l.y < 55 || l.y > 740) return;
+
+      const figMatch = txt.match(/^fig(ure)?\.?\s*(\d+)/i);
+      if (figMatch) {
+        if (currentFigNum !== null && currentCaption) {
+          pageCapMap.set(currentFigNum, currentCaption.trim());
+        }
+        currentFigNum = parseInt(figMatch[2], 10);
+        currentCaption = txt;
+        figureCaptionLineKeys.add(`${p.pageNum}_${l.y}`);
+      } else if (currentFigNum !== null) {
+        const isContinuation = /^\s*\(Source:|\bphoto by\b|\btaken\b/i.test(txt) ||
+          (!txt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b|\bMethods\b)/i) &&
+           (currentCaption.endsWith('-') || !currentCaption.trim().endsWith('.') || txt.startsWith('(') || txt.startsWith('by ')));
+
+        if (isContinuation) {
+          currentCaption += ' ' + txt;
+          figureCaptionLineKeys.add(`${p.pageNum}_${l.y}`);
+          if (txt.includes(')') || (txt.endsWith('.') && !txt.match(/\b(e\.g|i\.e|vol|no|pp)\.$/i))) {
+            pageCapMap.set(currentFigNum, currentCaption.trim());
+            currentFigNum = null;
+            currentCaption = '';
+          }
+        } else {
+          pageCapMap.set(currentFigNum, currentCaption.trim());
+          currentFigNum = null;
+          currentCaption = '';
+        }
+      }
+    });
+
+    if (currentFigNum !== null && currentCaption) {
+      pageCapMap.set(currentFigNum, currentCaption.trim());
+    }
+    if (pageCapMap.size > 0) {
+      captionsByPage.set(p.pageNum, pageCapMap);
+    }
+  });
+
+  return { figureCaptionLineKeys, captionsByPage };
+}
+
+function findCaptionForPage(
+  pageNum: number,
+  figIndex: number,
+  pageLines: TextLine[],
+  captionsByPage?: Map<number, Map<number, string>>
+): string {
+  if (captionsByPage?.has(pageNum)) {
+    const pageCapMap = captionsByPage.get(pageNum)!;
+    if (pageCapMap.has(figIndex)) {
+      return pageCapMap.get(figIndex)!;
+    }
+  }
+
   // Look for text lines matching "Figure X" or "Fig. X"
   const figRegex = new RegExp(`^(fig(ure)?\\.?\\s*${figIndex}[:\\.\\s].*)`, 'i');
 

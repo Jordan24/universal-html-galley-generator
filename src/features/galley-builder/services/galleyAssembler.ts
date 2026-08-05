@@ -76,10 +76,18 @@ export function assembleGalleyHtml(
       articleBodyHtml += `<h2 class="galley-heading" style="font-size: 1.4rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.85rem;">${escapeHtml(sec.heading)}</h2>`;
     }
     sec.paragraphs.forEach((p) => {
-      if (p.includes('<sup id="fnref-')) {
-        articleBodyHtml += `<p class="galley-paragraph" style="font-size: 1.05rem; line-height: 1.75; margin-bottom: 1.25rem; text-align: justify;">${p}</p>`;
+      const pText = typeof p === 'string' ? p : p.text;
+      const isBlockQuote = typeof p === 'string' ? false : Boolean(p.isBlockQuote);
+      const innerHtml = pText.includes('<sup id="fnref-') ? pText : escapeHtml(pText);
+
+      if (isBlockQuote) {
+        articleBodyHtml += `
+          <blockquote class="galley-blockquote" style="margin: 1.75rem 2.5rem; padding: 0; border: none; font-style: italic; color: inherit;">
+            <p class="galley-paragraph" style="font-size: 1.025rem; line-height: 1.75; margin: 0;">${innerHtml}</p>
+          </blockquote>
+        `;
       } else {
-        articleBodyHtml += `<p class="galley-paragraph" style="font-size: 1.05rem; line-height: 1.75; margin-bottom: 1.25rem; text-align: justify;">${escapeHtml(p)}</p>`;
+        articleBodyHtml += `<p class="galley-paragraph" style="font-size: 1.05rem; line-height: 1.75; margin-bottom: 1.25rem; text-align: justify;">${innerHtml}</p>`;
       }
 
       // Check if any unplaced figure is referenced in this paragraph
@@ -87,7 +95,7 @@ export function assembleGalleyHtml(
         if (!placedFigureIds.has(fig.id)) {
           const figNum = fig.id.replace('fig-', '');
           const figRegex = new RegExp(`\\bfig(ure)?\\.?\\s*${figNum}\\b`, 'i');
-          if (figRegex.test(p)) {
+          if (figRegex.test(pText)) {
             articleBodyHtml += renderFigureHtml(fig);
             placedFigureIds.add(fig.id);
           }
@@ -139,6 +147,8 @@ export function assembleGalleyHtml(
     <style>
       body { margin: 0; padding: 0; font-family: 'Merriweather', Georgia, serif; line-height: 1.75; color: #1e293b; background: #ffffff; }
       .galley-container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
+      .galley-blockquote { margin: 1.75rem 2.5rem; padding: 0; border: none; font-style: italic; color: inherit; }
+      .galley-blockquote .galley-paragraph { font-size: 1.025rem; line-height: 1.75; margin: 0; }
       .galley-figure { margin: 2rem 0; text-align: center; }
       .galley-figure-group { display: flex; gap: 1rem; justify-content: center; align-items: center; flex-wrap: wrap; }
       .galley-figure-img { max-width: 100%; height: auto; border-radius: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: inline-block; }
