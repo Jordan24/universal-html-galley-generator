@@ -25,7 +25,7 @@ export const App: React.FC = () => {
 
   // Re-assemble Galley HTML whenever paper and template update
   useEffect(() => {
-    if (parsedPaper && scrapedTemplate) {
+    if (parsedPaper) {
       const html = assembleGalleyHtml(parsedPaper, scrapedTemplate);
       setAssembledHtml(html);
     } else {
@@ -67,7 +67,7 @@ export const App: React.FC = () => {
             hasPaper={Boolean(parsedPaper)}
             hasTemplate={Boolean(scrapedTemplate)}
             onRefresh={() => {
-              if (parsedPaper && scrapedTemplate) {
+              if (parsedPaper) {
                 setAssembledHtml(assembleGalleyHtml(parsedPaper, scrapedTemplate));
               }
             }}

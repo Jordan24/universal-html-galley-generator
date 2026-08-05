@@ -25,6 +25,18 @@ export function assembleGalleyHtml(
       </header>
   `;
 
+  // Track placed figures
+  const placedFigureIds = new Set<string>();
+
+  const renderFigureHtml = (fig: any) => `
+    <figure id="${fig.id}" class="galley-figure" style="margin: 2rem 0; text-align: center;">
+      <img src="${fig.dataUrl}" alt="${escapeHtml(fig.altText || fig.caption)}" class="galley-figure-img" style="max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);" />
+      <figcaption class="galley-figure-caption" style="margin-top: 0.75rem; font-size: 0.9rem; color: #475569; font-style: italic;">
+        ${escapeHtml(fig.caption)}
+      </figcaption>
+    </figure>
+  `;
+
   paper.sections.forEach((sec) => {
     articleBodyHtml += `<section class="galley-section" style="margin-bottom: 1.75rem;">`;
     if (sec.heading) {
@@ -36,9 +48,31 @@ export function assembleGalleyHtml(
       } else {
         articleBodyHtml += `<p class="galley-paragraph" style="font-size: 1.05rem; line-height: 1.75; margin-bottom: 1.25rem; text-align: justify;">${escapeHtml(p)}</p>`;
       }
+
+      // Check if any unplaced figure is referenced in this paragraph
+      paper.figures.forEach((fig) => {
+        if (!placedFigureIds.has(fig.id)) {
+          const figNum = fig.id.replace('fig-', '');
+          const figRegex = new RegExp(`\\bfig(ure)?\\.?\\s*${figNum}\\b`, 'i');
+          if (figRegex.test(p)) {
+            articleBodyHtml += renderFigureHtml(fig);
+            placedFigureIds.add(fig.id);
+          }
+        }
+      });
     });
     articleBodyHtml += `</section>`;
   });
+
+  // Append remaining unplaced figures
+  const unplacedFigures = paper.figures.filter(f => !placedFigureIds.has(f.id));
+  if (unplacedFigures.length > 0) {
+    articleBodyHtml += `<section class="galley-figures-gallery" style="margin-top: 2.5rem; margin-bottom: 2rem;">`;
+    unplacedFigures.forEach((fig) => {
+      articleBodyHtml += renderFigureHtml(fig);
+    });
+    articleBodyHtml += `</section>`;
+  }
 
   // Attach Bidirectional Footnotes
   articleBodyHtml += renderBidirectionalFootnoteListHtml(paper.footnotes);
@@ -72,6 +106,9 @@ export function assembleGalleyHtml(
     <style>
       body { margin: 0; padding: 0; font-family: 'Merriweather', Georgia, serif; line-height: 1.75; color: #1e293b; background: #ffffff; }
       .galley-container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
+      .galley-figure { margin: 2rem 0; text-align: center; }
+      .galley-figure-img { max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: inline-block; }
+      .galley-figure-caption { margin-top: 0.75rem; font-size: 0.9rem; color: #475569; font-style: italic; }
       .footnote-ref a { color: #2563eb; text-decoration: none; font-weight: 700; padding: 0 3px; }
       .footnotes { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 2px solid #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
       .footnotes-title { font-size: 1.15rem; color: #0f172a; margin-bottom: 1rem; }

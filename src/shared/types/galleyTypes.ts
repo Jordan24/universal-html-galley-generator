@@ -11,6 +11,8 @@ export interface ParsedFigure {
   caption: string;
   dataUrl: string;
   altText: string;
+  pageNum?: number;
+  fileName?: string;
 }
 
 export interface PaperSection {

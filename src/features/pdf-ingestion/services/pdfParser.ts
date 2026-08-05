@@ -1,7 +1,10 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import { FootnoteItem, ParsedPaper, PaperSection } from '../../../shared/types/galleyTypes';
+import { FootnoteItem, ParsedPaper, PaperSection, ParsedFigure } from '../../../shared/types/galleyTypes';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import { extractFiguresFromPdf } from './figureExtractor';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface TextLine {
   y: number;
@@ -39,7 +42,9 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
       pageLines.push({ pageNum, lines });
     }
 
-    return extractStructureFromPageLines(file.name, file.size, pdf.numPages, pageLines);
+    const figures = await extractFiguresFromPdf(pdf, pageLines);
+
+    return extractStructureFromPageLines(file.name, file.size, pdf.numPages, pageLines, figures);
   } catch (error) {
     console.warn('PDF.js binary extraction notice, utilizing text fallback heuristic:', error);
     const textFallback = await file.text();
@@ -51,7 +56,8 @@ function extractStructureFromPageLines(
   fileName: string,
   fileSize: number,
   pageCount: number,
-  pageLines: { pageNum: number; lines: TextLine[] }[]
+  pageLines: { pageNum: number; lines: TextLine[] }[],
+  figures: ParsedFigure[] = []
 ): ParsedPaper {
   let title = '';
   let authors: string[] = [];
@@ -184,7 +190,7 @@ function extractStructureFromPageLines(
     abstract,
     sections: finalSections.length > 0 ? finalSections : [{ heading: 'Article Body', paragraphs: [fileName] }],
     footnotes: sortedFootnotes,
-    figures: [],
+    figures,
     rawText: pageLines.map(p => p.lines.map(l => l.text).join('\n')).join('\n\n'),
   };
 }
