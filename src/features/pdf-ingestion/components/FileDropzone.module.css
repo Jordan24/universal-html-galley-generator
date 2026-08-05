@@ -1,0 +1,109 @@
+.dropzoneContainer {
+  background: var(--bg-surface);
+  border: 2px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.dropzoneContainer:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-surface-elevated);
+  box-shadow: var(--shadow-glow);
+}
+
+.dropzoneActive {
+  border-color: var(--accent-primary);
+  background: var(--bg-surface-elevated);
+  transform: scale(1.01);
+  box-shadow: var(--shadow-glow);
+}
+
+.dropzoneContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.iconWrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+  transition: transform var(--transition-fast);
+}
+
+.dropzoneContainer:hover .iconWrapper {
+  transform: translateY(-2px);
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  max-width: 280px;
+}
+
+.fileInput {
+  display: none;
+}
+
+/* File Loaded State Card */
+.fileCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--accent-emerald);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+}
+
+.fileDetails {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.checkIcon {
+  color: var(--accent-emerald);
+  flex-shrink: 0;
+}
+
+.fileName {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fileMeta {
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+}
+
+.removeButton {
+  color: var(--text-tertiary);
+  padding: 0.35rem;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.removeButton:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}

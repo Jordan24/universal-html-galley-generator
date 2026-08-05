@@ -1,0 +1,75 @@
+.cardContainer {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--accent-emerald);
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.buttonGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.exportBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0.875rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.84rem;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.singleFileBtn {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
+.singleFileBtn:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
+}
+
+.zipBtn {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--accent-emerald);
+  color: var(--text-primary);
+}
+
+.zipBtn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.1);
+  transform: translateY(-2px);
+}
+
+.exportBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSubtext {
+  font-size: 0.725rem;
+  font-weight: 400;
+  opacity: 0.85;
+}

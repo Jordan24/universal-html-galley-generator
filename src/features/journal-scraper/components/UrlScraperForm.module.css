@@ -1,0 +1,125 @@
+.cardContainer {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--accent-primary);
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.urlInputRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.inputField {
+  flex: 1;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.875rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color var(--transition-fast);
+}
+
+.inputField:focus {
+  border-color: var(--accent-primary);
+}
+
+.fetchButton {
+  background: var(--accent-primary);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.fetchButton:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+}
+
+.fetchButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.selectField {
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-family: inherit;
+}
+
+.samplePill {
+  font-size: 0.75rem;
+  color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background var(--transition-fast);
+}
+
+.samplePill:hover {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+.statusCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--accent-emerald);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+}
+
+.statusSuccess {
+  color: var(--accent-emerald);
+  font-weight: 600;
+}
+
+.statusDetail {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}

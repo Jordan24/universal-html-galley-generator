@@ -1,0 +1,15 @@
+{
+  "name": "projects/universal-html-galley-generator",
+  "title": "Universal HTML Galley Generator",
+  "visibility": "PRIVATE",
+  "projectType": "PROJECT_DESIGN",
+  "deviceType": "DESKTOP",
+  "designTheme": {
+    "colorMode": "DARK",
+    "font": "INTER",
+    "roundness": "ROUND_EIGHT",
+    "customColor": "#3b82f6",
+    "saturation": 3
+  },
+  "screens": {}
+}

@@ -1,0 +1,30 @@
+.mainLayout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  gap: 1.5rem;
+  padding: 1.5rem 1.75rem;
+  max-width: 1800px;
+  width: 100%;
+  margin: 0 auto;
+  min-height: calc(100vh - 64px);
+}
+
+.leftControlColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+}
+
+.rightPreviewColumn {
+  display: flex;
+  flex-direction: column;
+  min-height: 600px;
+}
+
+@media (max-width: 1080px) {
+  .mainLayout {
+    grid-template-columns: 1fr;
+  }
+}
