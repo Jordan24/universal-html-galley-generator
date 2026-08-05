@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './shared/components/Header';
-import { ParsedPaper, ScrapedTemplate, ThemeMode } from './shared/types/galleyTypes';
+import { ParsedPaper, ScrapedTemplate, ThemeMode, GalleyDisplayOptions } from './shared/types/galleyTypes';
 import { FileDropzone } from './features/pdf-ingestion/components/FileDropzone';
 import { UrlScraperForm } from './features/journal-scraper/components/UrlScraperForm';
 import { assembleGalleyHtml } from './features/galley-builder/services/galleyAssembler';
+import { GalleyOptionsControls } from './features/galley-builder/components/GalleyOptionsControls';
 import { PreviewSandbox } from './features/preview-sandbox/components/PreviewSandbox';
 import { ExportControls } from './features/export-bundle/components/ExportControls';
 import styles from './App.module.css';
@@ -15,6 +16,10 @@ export const App: React.FC = () => {
   const [assembledHtml, setAssembledHtml] = useState<string | null>(null);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isScraperLoading, setIsScraperLoading] = useState(false);
+  const [galleyOptions, setGalleyOptions] = useState<GalleyDisplayOptions>({
+    showTitleInBody: true,
+    showAuthorsInBody: true,
+  });
 
   // Toggle Theme
   const handleToggleTheme = () => {
@@ -23,15 +28,15 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', nextTheme);
   };
 
-  // Re-assemble Galley HTML whenever paper and template update
+  // Re-assemble Galley HTML whenever paper, template, or options update
   useEffect(() => {
     if (parsedPaper) {
-      const html = assembleGalleyHtml(parsedPaper, scrapedTemplate);
+      const html = assembleGalleyHtml(parsedPaper, scrapedTemplate, galleyOptions);
       setAssembledHtml(html);
     } else {
       setAssembledHtml(null);
     }
-  }, [parsedPaper, scrapedTemplate]);
+  }, [parsedPaper, scrapedTemplate, galleyOptions]);
 
   return (
     <>
@@ -54,6 +59,11 @@ export const App: React.FC = () => {
             setIsLoading={setIsScraperLoading}
           />
 
+          <GalleyOptionsControls
+            options={galleyOptions}
+            onOptionsChange={setGalleyOptions}
+          />
+
           <ExportControls
             assembledHtml={assembledHtml}
             paperTitle={parsedPaper?.title}
@@ -68,7 +78,7 @@ export const App: React.FC = () => {
             hasTemplate={Boolean(scrapedTemplate)}
             onRefresh={() => {
               if (parsedPaper) {
-                setAssembledHtml(assembleGalleyHtml(parsedPaper, scrapedTemplate));
+                setAssembledHtml(assembleGalleyHtml(parsedPaper, scrapedTemplate, galleyOptions));
               }
             }}
           />

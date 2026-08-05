@@ -1,28 +1,46 @@
-import { ParsedPaper, ScrapedTemplate } from '../../../shared/types/galleyTypes';
+import { ParsedPaper, ScrapedTemplate, GalleyDisplayOptions } from '../../../shared/types/galleyTypes';
 import { renderBidirectionalFootnoteListHtml } from './footnoteAnchors';
 import { GALLEY_BODY_PLACEHOLDER } from '../../journal-scraper/services/domSanitizer';
 
 export function assembleGalleyHtml(
   paper: ParsedPaper,
-  template: ScrapedTemplate | null
+  template: ScrapedTemplate | null,
+  options?: GalleyDisplayOptions
 ): string {
   const paperTitle = paper.title || 'Academic Galley Article';
+  const showTitle = options?.showTitleInBody ?? true;
+  const showAuthors = options?.showAuthorsInBody ?? true;
+
+  const titleHtml = showTitle && paper.title
+    ? `<h1 class="galley-article-title" style="font-size: 2rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.75rem;">${escapeHtml(paper.title)}</h1>`
+    : '';
+
+  const authorsHtml = showAuthors && paper.authors && paper.authors.length > 0
+    ? `<div class="galley-article-authors" style="font-size: 1.05rem; opacity: 0.85; margin-bottom: 1.75rem; font-weight: 500;">
+        ${paper.authors.map(escapeHtml).join(', ')}
+      </div>`
+    : '';
+
+  const abstractHtml = paper.abstract
+    ? `<div class="galley-article-abstract" style="background: rgba(59, 130, 246, 0.06); border-left: 4px solid #3b82f6; padding: 1.25rem 1.5rem; border-radius: 6px; margin-bottom: 2rem;">
+        <h3 style="margin-top: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: #3b82f6;">Abstract</h3>
+        <p style="margin: 0; font-size: 1rem; line-height: 1.7;">${escapeHtml(paper.abstract)}</p>
+      </div>`
+    : '';
+
+  const hasHeaderContent = Boolean(titleHtml || authorsHtml || abstractHtml);
+  const articleHeaderMarkup = hasHeaderContent
+    ? `<header class="galley-article-header" style="margin-bottom: 2rem;">
+        ${titleHtml}
+        ${authorsHtml}
+        ${abstractHtml}
+      </header>`
+    : '';
 
   // 1. Build Article Body HTML
   let articleBodyHtml = `
     <article class="galley-article-body" style="font-family: inherit; color: inherit;">
-      <header class="galley-article-header" style="margin-bottom: 2rem;">
-        <h1 class="galley-article-title" style="font-size: 2rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.75rem;">${escapeHtml(paper.title)}</h1>
-        <div class="galley-article-authors" style="font-size: 1.05rem; opacity: 0.85; margin-bottom: 1.75rem; font-weight: 500;">
-          ${paper.authors.map(escapeHtml).join(', ')}
-        </div>
-        ${paper.abstract ? `
-          <div class="galley-article-abstract" style="background: rgba(59, 130, 246, 0.06); border-left: 4px solid #3b82f6; padding: 1.25rem 1.5rem; border-radius: 6px; margin-bottom: 2rem;">
-            <h3 style="margin-top: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: #3b82f6;">Abstract</h3>
-            <p style="margin: 0; font-size: 1rem; line-height: 1.7;">${escapeHtml(paper.abstract)}</p>
-          </div>
-        ` : ''}
-      </header>
+      ${articleHeaderMarkup}
   `;
 
   // Track placed figures
