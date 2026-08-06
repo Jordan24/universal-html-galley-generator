@@ -1,5 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { FootnoteItem, ParsedPaper, PaperSection, ParsedFigure } from '../../../shared/types/galleyTypes';
+import { linkifyHtml } from '../../../shared/utils/linkifier';
 
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { extractFiguresFromPdf, extractFigureCaptionLineKeys } from './figureExtractor';
@@ -90,6 +91,14 @@ function formatTextChunk(rawStr: string, isBold: boolean, isItalic: boolean, isU
   return leading + formatted + trailing;
 }
 
+function formatLinkChunk(chunkHtml: string, url: string): string {
+  const match = chunkHtml.match(/^(\s*)(.*?)(\s*)$/s);
+  if (!match) return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${chunkHtml}</a>`;
+  const [, leading, body, trailing] = match;
+  if (!body) return chunkHtml;
+  return `${leading}<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${body}</a>${trailing}`;
+}
+
 export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
   const arrayBuffer = await file.arrayBuffer();
 
@@ -103,6 +112,19 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();
 
+      let linkAnnots: { url: string; rect: number[] }[] = [];
+      try {
+        const annotations = await page.getAnnotations();
+        linkAnnots = annotations
+          .filter((annot: any) => (annot.annotationType === 1 || annot.subtype === 'Link') && (annot.url || annot.unsafeUrl) && annot.rect)
+          .map((annot: any) => ({
+            url: (annot.url || annot.unsafeUrl) as string,
+            rect: annot.rect as number[],
+          }));
+      } catch (err) {
+        // Ignore annotation errors if unreadable
+      }
+
       let currentGroup: TextLine | null = null;
       const lines: TextLine[] = [];
 
@@ -111,7 +133,17 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
           const y = item.transform ? item.transform[5] : 0;
           const x = item.transform ? item.transform[4] : 0;
           const { isBold, isItalic, isUnderline } = getFontStyles(item, textContent.styles);
-          const chunk = formatTextChunk(item.str, isBold, isItalic, isUnderline);
+          let chunk = formatTextChunk(item.str, isBold, isItalic, isUnderline);
+
+          if (linkAnnots.length > 0) {
+            const matched = linkAnnots.find(a =>
+              x >= a.rect[0] - 8 && x <= a.rect[2] + 8 &&
+              y >= a.rect[1] - 8 && y <= a.rect[3] + 8
+            );
+            if (matched && chunk.trim()) {
+              chunk = formatLinkChunk(chunk, matched.url);
+            }
+          }
 
           if (!currentGroup || Math.abs(y - currentGroup.y) > 4) {
             currentGroup = { y, minX: x, text: '' };
@@ -186,7 +218,8 @@ function extractStructureFromPageLines(
   }
 
   title = cleanUpHtmlTags(titleLines.join(' '));
-  abstract = cleanUpHtmlTags(abstract);
+  abstract = linkifyHtml(cleanUpHtmlTags(abstract));
+  authors = authors.map(a => linkifyHtml(cleanUpHtmlTags(a)));
 
   // 2. Dynamic Footnote Extraction across all pages (Y < 220)
   pageLines.forEach(p => {
@@ -200,7 +233,7 @@ function extractStructureFromPageLines(
         const fnMatch = plainTxt.match(/^(\d{1,3})\s+([A-Z"“'‘\(\[\{].+)/);
         if (fnMatch) {
           const fnId = parseInt(fnMatch[1], 10);
-          const fnText = cleanUpHtmlTags(txt.replace(/^(\s*<[^>]+>)*\d{1,3}\s+/, ''));
+          const fnText = linkifyHtml(cleanUpHtmlTags(txt.replace(/^(\s*<[^>]+>)*\d{1,3}\s+/, '')));
           currentFn = {
             id: fnId,
             label: `${fnId}`,
@@ -211,7 +244,7 @@ function extractStructureFromPageLines(
           fnMap.set(fnId, currentFn);
           footnoteLineKeys.add(`${p.pageNum}_${l.y}`);
         } else if (currentFn) {
-          currentFn.text = cleanUpHtmlTags(currentFn.text + ' ' + txt);
+          currentFn.text = linkifyHtml(cleanUpHtmlTags(currentFn.text + ' ' + txt));
           footnoteLineKeys.add(`${p.pageNum}_${l.y}`);
         }
       }
@@ -243,7 +276,7 @@ function extractStructureFromPageLines(
   const pushCurrentParagraph = () => {
     if (stripTags(currentParagraph).trim()) {
       currentSection.paragraphs.push({
-        text: cleanUpHtmlTags(currentParagraph),
+        text: linkifyHtml(cleanUpHtmlTags(currentParagraph)),
         isBlockQuote: currentIsBlockQuote,
       });
       currentParagraph = '';
@@ -272,7 +305,7 @@ function extractStructureFromPageLines(
         if (currentSection.paragraphs.length > 0 || currentSection.heading) {
           sections.push(currentSection);
         }
-        currentSection = { heading: cleanUpHtmlTags(txt), paragraphs: [] };
+        currentSection = { heading: linkifyHtml(cleanUpHtmlTags(txt)), paragraphs: [] };
       } else {
         const isIndented = l.minX >= standardMargin + 18;
 
@@ -344,7 +377,7 @@ function fallbackPlainExtract(fileName: string, fileSize: number, rawText: strin
     title: fileName.replace(/\.pdf$/i, ''),
     authors: ['Academic Author(s)'],
     abstract: '',
-    sections: [{ heading: 'Paper Body', paragraphs: [{ text: rawText, isBlockQuote: false }] }],
+    sections: [{ heading: 'Paper Body', paragraphs: [{ text: linkifyHtml(escapeHtml(rawText)), isBlockQuote: false }] }],
     footnotes: [],
     figures: [],
     rawText,

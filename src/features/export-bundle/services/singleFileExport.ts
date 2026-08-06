@@ -1,4 +1,5 @@
 import saveAs from 'file-saver';
+import { sanitizeHtmlForExport } from './exportSanitizer';
 
 export function downloadSingleFileHtml(htmlContent: string, fileNameTitle: string): void {
   const sanitizedTitle = fileNameTitle
@@ -8,6 +9,8 @@ export function downloadSingleFileHtml(htmlContent: string, fileNameTitle: strin
   
   const outputFileName = `${sanitizedTitle || 'article-galley'}-standalone.html`;
 
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const cleanHtml = sanitizeHtmlForExport(htmlContent);
+
+  const blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8' });
   saveAs(blob, outputFileName);
 }

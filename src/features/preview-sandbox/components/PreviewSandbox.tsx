@@ -254,7 +254,7 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
             srcDoc={iframeSrcDoc ?? undefined}
             onLoad={handleIframeLoad}
             title="Live Galley Isolated Preview Sandbox"
-            sandbox="allow-same-origin allow-scripts allow-popups"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox"
           />
         ) : (
           <div className={styles.placeholderBox}>

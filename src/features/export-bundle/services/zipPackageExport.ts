@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import saveAs from 'file-saver';
+import { sanitizeHtmlForExport } from './exportSanitizer';
 
 export async function downloadZipPackage(htmlContent: string, fileNameTitle: string): Promise<void> {
   const sanitizedTitle = fileNameTitle
@@ -9,14 +10,14 @@ export async function downloadZipPackage(htmlContent: string, fileNameTitle: str
 
   const zip = new JSZip();
   const imagesFolder = zip.folder('images');
-  let finalHtml = htmlContent;
+  let finalHtml = sanitizeHtmlForExport(htmlContent);
   let imageCounter = 1;
 
   // Regex to match data URL images in img src attributes
   const dataUrlRegex = /src=["'](data:image\/([a-zA-Z0-9]+);base64,([^"']+))["']/g;
   let match;
 
-  while ((match = dataUrlRegex.exec(htmlContent)) !== null) {
+  while ((match = dataUrlRegex.exec(finalHtml)) !== null) {
     const dataUrl = match[1];
     const extension = match[2] === 'jpeg' ? 'jpg' : match[2];
     const base64Data = match[3];

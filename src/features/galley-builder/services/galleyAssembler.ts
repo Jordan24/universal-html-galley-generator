@@ -147,6 +147,8 @@ export function assembleGalleyHtml(
     <style>
       body { margin: 0; padding: 0; font-family: 'Merriweather', Georgia, serif; line-height: 1.75; color: #1e293b; background: #ffffff; }
       .galley-container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
+      .galley-article-body a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; word-break: break-word; transition: color 0.15s ease; }
+      .galley-article-body a:hover { color: #1d4ed8; text-decoration-color: #1d4ed8; }
       .galley-blockquote { margin: 1.75rem 2.5rem; padding: 0; border: none; color: inherit; }
       .galley-blockquote .galley-paragraph { font-size: 1.025rem; line-height: 1.75; margin: 0; }
       .galley-figure { margin: 2rem 0; text-align: center; }
