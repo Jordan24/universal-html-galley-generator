@@ -1,6 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { FootnoteItem, ParsedPaper, PaperSection, ParsedFigure } from '../../../shared/types/galleyTypes';
-import { linkifyHtml } from '../../../shared/utils/linkifier';
+import { linkifyHtml, consolidateAdjacentAnchors } from '../../../shared/utils/linkifier';
 
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { extractFiguresFromPdf, extractFigureCaptionLineKeys } from './figureExtractor';
@@ -26,12 +26,14 @@ export function stripTags(str: string): string {
 }
 
 export function cleanUpHtmlTags(html: string): string {
-  return html
+  const cleaned = html
     .replace(/<\/b>(\s*)<b>/g, '$1')
     .replace(/<\/i>(\s*)<i>/g, '$1')
     .replace(/<\/u>(\s*)<u>/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
+
+  return consolidateAdjacentAnchors(cleaned);
 }
 
 interface FontStyleInfo {
@@ -40,28 +42,58 @@ interface FontStyleInfo {
   isUnderline: boolean;
 }
 
-function getFontStyles(item: any, styles: Record<string, any>): FontStyleInfo {
-  if (!item || typeof item !== 'object') {
-    return { isBold: false, isItalic: false, isUnderline: false };
+function getFontStyles(item: any, styles: Record<string, any>, page: pdfjsLib.PDFPageProxy): FontStyleInfo {
+  let isBold = false;
+  let isItalic = false;
+  let isUnderline = false;
+
+  const fontName = item.fontName || '';
+  let fontObjName = '';
+  let fontObjLoadedName = '';
+
+  // 1. Try to read properties from PDF.js page.commonObjs
+  try {
+    if (page.commonObjs && page.commonObjs.has(fontName)) {
+      const fontObj = page.commonObjs.get(fontName);
+      if (fontObj) {
+        if (typeof fontObj.bold === 'boolean') {
+          isBold = fontObj.bold;
+        }
+        if (typeof fontObj.italic === 'boolean') {
+          isItalic = fontObj.italic;
+        }
+        fontObjName = fontObj.name || '';
+        fontObjLoadedName = fontObj.loadedName || '';
+      }
+    }
+  } catch (err) {
+    // Ignore commonObjs reading errors
   }
 
-  const fontName = (item.fontName || '').toLowerCase();
-  const styleObj = styles && item.fontName ? styles[item.fontName] : null;
+  // 2. Heuristics fallback using fontName, styles dictionary, and resolved font names
+  const styleObj = styles && fontName ? styles[fontName] : null;
   const fontFamily = (styleObj?.fontFamily || '').toLowerCase();
+  const fontNameLower = fontName.toLowerCase();
+  const combined = `${fontNameLower} ${fontFamily} ${fontObjName.toLowerCase()} ${fontObjLoadedName.toLowerCase()}`;
 
-  const combined = `${fontName} ${fontFamily}`;
+  if (!isBold) {
+    isBold =
+      /\b(bold|bd|heavy|black|semibold|demibold)\b/i.test(combined) ||
+      /(-bold|-bd|-b)\b/i.test(combined) ||
+      /\b(cmbx|cmb|ptm-b|ptm-bi)\d*/i.test(combined) ||
+      /bold|black/i.test(combined);
+  }
 
-  const isBold =
-    /\b(bold|bd|heavy|black|semibold|demibold)\b/i.test(combined) ||
-    /(-bold|-bd|-b)\b/i.test(combined) ||
-    /\b(cmbx|cmb|ptm-b|ptm-bi)\d*/i.test(combined);
+  if (!isItalic) {
+    isItalic =
+      /\b(italic|oblique|slanted|it)\b/i.test(combined) ||
+      /(-italic|-it|-oblique|-slanted)\b/i.test(combined) ||
+      /\b(cmti|ptm-ri|ptm-bi)\d*/i.test(combined) ||
+      /italic|oblique/i.test(combined) ||
+      /[a-zA-Z]I\b/.test(combined); // E.g. AdvGaramondI
+  }
 
-  const isItalic =
-    /\b(italic|oblique|slanted|it)\b/i.test(combined) ||
-    /(-italic|-it|-oblique|-slanted)\b/i.test(combined) ||
-    /\b(cmti|ptm-ri|ptm-bi)\d*/i.test(combined);
-
-  const isUnderline = /\b(underline|underlined)\b/i.test(combined) || /underline/i.test(combined);
+  isUnderline = /\b(underline|underlined)\b/i.test(combined) || /underline/i.test(combined);
 
   return { isBold, isItalic, isUnderline };
 }
@@ -110,6 +142,13 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
+      
+      try {
+        await page.getOperatorList();
+      } catch (err) {
+        // Ignore operator list loading errors
+      }
+
       const textContent = await page.getTextContent();
 
       let linkAnnots: { url: string; rect: number[] }[] = [];
@@ -132,15 +171,35 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
         if ('str' in item) {
           const y = item.transform ? item.transform[5] : 0;
           const x = item.transform ? item.transform[4] : 0;
-          const { isBold, isItalic, isUnderline } = getFontStyles(item, textContent.styles);
+          const { isBold, isItalic, isUnderline } = getFontStyles(item, textContent.styles, page);
           let chunk = formatTextChunk(item.str, isBold, isItalic, isUnderline);
 
-          if (linkAnnots.length > 0) {
-            const matched = linkAnnots.find(a =>
-              x >= a.rect[0] - 8 && x <= a.rect[2] + 8 &&
-              y >= a.rect[1] - 8 && y <= a.rect[3] + 8
-            );
-            if (matched && chunk.trim()) {
+          if (linkAnnots.length > 0 && chunk.trim()) {
+            const itemWidth = (item as any).width || 0;
+            const itemLeft = x;
+            const itemRight = x + itemWidth;
+            const itemMidX = itemWidth > 0 ? itemLeft + itemWidth / 2 : x;
+
+            const matched = linkAnnots.find(a => {
+              const aMinX = a.rect[0];
+              const aMinY = a.rect[1];
+              const aMaxX = a.rect[2];
+              const aMaxY = a.rect[3];
+
+              // Vertical match: baseline Y must fall within PDF annotation box (with tight 3pt margin)
+              const isYMatch = y >= aMinY - 3 && y <= aMaxY + 3;
+              if (!isYMatch) return false;
+
+              // Horizontal match: check if item midpoint or majority of item width falls within annotation X box
+              if (itemWidth > 0) {
+                const overlap = Math.max(0, Math.min(itemRight, aMaxX) - Math.max(itemLeft, aMinX));
+                const overlapRatio = overlap / itemWidth;
+                return overlapRatio >= 0.4 || (itemMidX >= aMinX - 1 && itemMidX <= aMaxX + 1);
+              }
+              return x >= aMinX - 1 && x <= aMaxX + 1;
+            });
+
+            if (matched) {
               chunk = formatLinkChunk(chunk, matched.url);
             }
           }

@@ -69,6 +69,29 @@ export function linkifyHtml(html: string): string {
   return currentHtml;
 }
 
+/**
+ * Merges consecutive <a>...</a> tags that share the exact same href attribute
+ * into a single continuous <a> element, eliminating split link fragments.
+ */
+export function consolidateAdjacentAnchors(html: string): string {
+  if (!html || !html.includes('</a>')) return html;
+
+  let prev = html;
+  let current = html;
+
+  do {
+    prev = current;
+    current = current.replace(
+      /<a\s+([^>]*?)href=(["'])(.*?)\2([^>]*?)>(.*?)<\/a>(\s*)<a\s+([^>]*?)href=(["'])\3\8([^>]*?)>(.*?)<\/a>/gi,
+      (_match, pre1, _quote1, href, post1, content1, space, _pre2, _quote2, _post2, content2) => {
+        return `<a ${pre1}href="${href}"${post1}>${content1}${space}${content2}</a>`;
+      }
+    );
+  } while (current !== prev);
+
+  return current;
+}
+
 function transformOutsideAnchors(html: string, transformFn: (text: string) => string): string {
   const tokens = html.split(/(<[^>]+>)/g);
   let inAnchor = false;
