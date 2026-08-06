@@ -12,6 +12,84 @@ interface TextLine {
   text: string;
 }
 
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function stripTags(str: string): string {
+  return str.replace(/<[^>]*>/g, '');
+}
+
+export function cleanUpHtmlTags(html: string): string {
+  return html
+    .replace(/<\/b>(\s*)<b>/g, '$1')
+    .replace(/<\/i>(\s*)<i>/g, '$1')
+    .replace(/<\/u>(\s*)<u>/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+interface FontStyleInfo {
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+}
+
+function getFontStyles(item: any, styles: Record<string, any>): FontStyleInfo {
+  if (!item || typeof item !== 'object') {
+    return { isBold: false, isItalic: false, isUnderline: false };
+  }
+
+  const fontName = (item.fontName || '').toLowerCase();
+  const styleObj = styles && item.fontName ? styles[item.fontName] : null;
+  const fontFamily = (styleObj?.fontFamily || '').toLowerCase();
+
+  const combined = `${fontName} ${fontFamily}`;
+
+  const isBold =
+    /\b(bold|bd|heavy|black|semibold|demibold)\b/i.test(combined) ||
+    /(-bold|-bd|-b)\b/i.test(combined) ||
+    /\b(cmbx|cmb|ptm-b|ptm-bi)\d*/i.test(combined);
+
+  const isItalic =
+    /\b(italic|oblique|slanted|it)\b/i.test(combined) ||
+    /(-italic|-it|-oblique|-slanted)\b/i.test(combined) ||
+    /\b(cmti|ptm-ri|ptm-bi)\d*/i.test(combined);
+
+  const isUnderline = /\b(underline|underlined)\b/i.test(combined) || /underline/i.test(combined);
+
+  return { isBold, isItalic, isUnderline };
+}
+
+function formatTextChunk(rawStr: string, isBold: boolean, isItalic: boolean, isUnderline: boolean): string {
+  if (!rawStr) return '';
+  if (!isBold && !isItalic && !isUnderline) return escapeHtml(rawStr);
+  if (!rawStr.trim()) return rawStr;
+
+  const match = rawStr.match(/^(\s*)(.*?)(\s*)$/s);
+  if (!match) return escapeHtml(rawStr);
+
+  const [, leading, body, trailing] = match;
+  if (!body) return rawStr;
+
+  let formatted = escapeHtml(body);
+  if (isBold) {
+    formatted = `<b>${formatted}</b>`;
+  }
+  if (isItalic) {
+    formatted = `<i>${formatted}</i>`;
+  }
+  if (isUnderline) {
+    formatted = `<u>${formatted}</u>`;
+  }
+
+  return leading + formatted + trailing;
+}
+
 export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
   const arrayBuffer = await file.arrayBuffer();
 
@@ -32,6 +110,9 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
         if ('str' in item) {
           const y = item.transform ? item.transform[5] : 0;
           const x = item.transform ? item.transform[4] : 0;
+          const { isBold, isItalic, isUnderline } = getFontStyles(item, textContent.styles);
+          const chunk = formatTextChunk(item.str, isBold, isItalic, isUnderline);
+
           if (!currentGroup || Math.abs(y - currentGroup.y) > 4) {
             currentGroup = { y, minX: x, text: '' };
             lines.push(currentGroup);
@@ -40,7 +121,7 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
               currentGroup.minX = x;
             }
           }
-          currentGroup.text += item.str + ' ';
+          currentGroup.text += chunk;
         }
       }
       // Sort lines from top to bottom (descending Y in PDF coordinates)
@@ -81,16 +162,17 @@ function extractStructureFromPageLines(
 
   for (const l of page1Lines) {
     const txt = l.text.trim();
-    if (!txt || l.y < 55) continue; // Skip running footer
+    const plainTxt = stripTags(l.text).trim();
+    if (!plainTxt || l.y < 55) continue; // Skip running footer
 
-    if (txt.toLowerCase().startsWith('abstract')) {
+    if (plainTxt.toLowerCase().startsWith('abstract')) {
       foundAbstract = true;
-      abstract = txt.replace(/^abstract[\s\:]*/i, '');
+      abstract = txt.replace(/^(\s*<[^>]+>)*abstract[\s\:]*/i, '');
       continue;
     }
 
     if (foundAbstract) {
-      if (txt.toLowerCase().startsWith('keywords') || l.y < 220) {
+      if (plainTxt.toLowerCase().startsWith('keywords') || l.y < 220) {
         break;
       }
       abstract += ' ' + txt;
@@ -98,36 +180,38 @@ function extractStructureFromPageLines(
       if (titleLines.length < 2) {
         titleLines.push(txt);
       } else if (authors.length === 0) {
-        authors.push(txt);
+        authors.push(cleanUpHtmlTags(txt));
       }
     }
   }
 
-  title = titleLines.join(' ').trim();
-  abstract = abstract.trim();
+  title = cleanUpHtmlTags(titleLines.join(' '));
+  abstract = cleanUpHtmlTags(abstract);
 
   // 2. Dynamic Footnote Extraction across all pages (Y < 220)
   pageLines.forEach(p => {
     let currentFn: FootnoteItem | null = null;
     p.lines.forEach(l => {
       const txt = l.text.trim();
-      if (!txt || l.y < 55 || l.y > 720 || figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) return; // Skip running headers/footers & caption lines
+      const plainTxt = stripTags(l.text).trim();
+      if (!plainTxt || l.y < 55 || l.y > 720 || figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) return; // Skip running headers/footers & caption lines
 
       if (l.y < 220) {
-        const fnMatch = txt.match(/^(\d{1,3})\s+([A-Z"“'‘\(\[\{].+)/);
+        const fnMatch = plainTxt.match(/^(\d{1,3})\s+([A-Z"“'‘\(\[\{].+)/);
         if (fnMatch) {
           const fnId = parseInt(fnMatch[1], 10);
+          const fnText = cleanUpHtmlTags(txt.replace(/^(\s*<[^>]+>)*\d{1,3}\s+/, ''));
           currentFn = {
             id: fnId,
             label: `${fnId}`,
-            text: fnMatch[2].trim(),
+            text: fnText,
             refAnchorId: `fnref-${fnId}`,
             footnoteAnchorId: `fn-${fnId}`,
           };
           fnMap.set(fnId, currentFn);
           footnoteLineKeys.add(`${p.pageNum}_${l.y}`);
         } else if (currentFn) {
-          currentFn.text += ' ' + txt;
+          currentFn.text = cleanUpHtmlTags(currentFn.text + ' ' + txt);
           footnoteLineKeys.add(`${p.pageNum}_${l.y}`);
         }
       }
@@ -140,8 +224,8 @@ function extractStructureFromPageLines(
   const allMinXs: number[] = [];
   pageLines.forEach(p => {
     p.lines.forEach(l => {
-      const txt = l.text.trim();
-      if (txt && l.y >= 55 && l.y <= 740 && !footnoteLineKeys.has(`${p.pageNum}_${l.y}`) && !figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) {
+      const plainTxt = stripTags(l.text).trim();
+      if (plainTxt && l.y >= 55 && l.y <= 740 && !footnoteLineKeys.has(`${p.pageNum}_${l.y}`) && !figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) {
         if (l.minX > 30 && l.minX < 200) {
           allMinXs.push(l.minX);
         }
@@ -157,9 +241,9 @@ function extractStructureFromPageLines(
   let currentIsBlockQuote = false;
 
   const pushCurrentParagraph = () => {
-    if (currentParagraph.trim()) {
+    if (stripTags(currentParagraph).trim()) {
       currentSection.paragraphs.push({
-        text: currentParagraph.trim(),
+        text: cleanUpHtmlTags(currentParagraph),
         isBlockQuote: currentIsBlockQuote,
       });
       currentParagraph = '';
@@ -170,24 +254,25 @@ function extractStructureFromPageLines(
   pageLines.forEach((p, pIdx) => {
     p.lines.forEach(l => {
       const txt = l.text.trim();
-      if (!txt || l.y < 55 || l.y > 740 || footnoteLineKeys.has(`${p.pageNum}_${l.y}`) || figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) return;
+      const plainTxt = stripTags(l.text).trim();
+      if (!plainTxt || l.y < 55 || l.y > 740 || footnoteLineKeys.has(`${p.pageNum}_${l.y}`) || figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) return;
 
       // Skip Page 1 title/author/abstract lines
-      if (pIdx === 0 && (l.y > 550 || txt.toLowerCase().startsWith('abstract') || foundAbstract)) {
-        if (txt.toLowerCase().startsWith('abstract')) return;
-        if (l.y > 400 && abstract.includes(txt)) return;
+      if (pIdx === 0 && (l.y > 550 || plainTxt.toLowerCase().startsWith('abstract') || foundAbstract)) {
+        if (plainTxt.toLowerCase().startsWith('abstract')) return;
+        if (l.y > 400 && abstract.includes(plainTxt)) return;
       }
 
       // Heading Detection (Numbered, Roman, or short title-cased lines)
-      const isHeading = txt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b|\bMethods\b|\bResults\b|\bDiscussion\b|\bConclusion\b|\bReferences\b|\bWorks Cited\b|\bAcknowledgements\b)/i) ||
-                        (txt.length < 55 && txt === txt.toUpperCase() && txt.length > 3);
+      const isHeading = plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b|\bMethods\b|\bResults\b|\bDiscussion\b|\bConclusion\b|\bReferences\b|\bWorks Cited\b|\bAcknowledgements\b)/i) ||
+                        (plainTxt.length < 55 && plainTxt === plainTxt.toUpperCase() && plainTxt.length > 3);
 
       if (isHeading) {
         pushCurrentParagraph();
         if (currentSection.paragraphs.length > 0 || currentSection.heading) {
           sections.push(currentSection);
         }
-        currentSection = { heading: txt, paragraphs: [] };
+        currentSection = { heading: cleanUpHtmlTags(txt), paragraphs: [] };
       } else {
         const isIndented = l.minX >= standardMargin + 18;
 
@@ -206,7 +291,7 @@ function extractStructureFromPageLines(
         }
 
         // Paragraph break heuristic on sentence end
-        if (!isIndented && txt.length < 50 && (txt.endsWith('.') || txt.endsWith(':') || txt.endsWith(')'))) {
+        if (!isIndented && plainTxt.length < 50 && (plainTxt.endsWith('.') || plainTxt.endsWith(':') || plainTxt.endsWith(')'))) {
           pushCurrentParagraph();
         }
       }

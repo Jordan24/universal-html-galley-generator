@@ -12,7 +12,7 @@ export function assembleGalleyHtml(
   const showAuthors = options?.showAuthorsInBody ?? true;
 
   const titleHtml = showTitle && paper.title
-    ? `<h1 class="galley-article-title" style="font-size: 2rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.75rem;">${escapeHtml(paper.title)}</h1>`
+    ? `<h1 class="galley-article-title" style="font-size: 2rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.75rem;">${paper.title}</h1>`
     : '';
 
   const authorsHtml = showAuthors && paper.authors && paper.authors.length > 0
@@ -24,7 +24,7 @@ export function assembleGalleyHtml(
   const abstractHtml = paper.abstract
     ? `<div class="galley-article-abstract" style="background: rgba(59, 130, 246, 0.06); border-left: 4px solid #3b82f6; padding: 1.25rem 1.5rem; border-radius: 6px; margin-bottom: 2rem;">
         <h3 style="margin-top: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: #3b82f6;">Abstract</h3>
-        <p style="margin: 0; font-size: 1rem; line-height: 1.7;">${escapeHtml(paper.abstract)}</p>
+        <p style="margin: 0; font-size: 1rem; line-height: 1.7;">${paper.abstract}</p>
       </div>`
     : '';
 
@@ -63,8 +63,8 @@ export function assembleGalleyHtml(
         <div class="galley-figure-group" style="display: flex; gap: 1rem; justify-content: center; align-items: center; flex-wrap: wrap;">
           ${imagesHtml}
         </div>
-        <figcaption class="galley-figure-caption" style="margin-top: 0.75rem; font-size: 0.9rem; color: #475569; font-style: italic;">
-          ${escapeHtml(fig.caption)}
+        <figcaption class="galley-figure-caption" style="margin-top: 0.75rem; font-size: 0.9rem; color: #475569;">
+          ${fig.caption}
         </figcaption>
       </figure>
     `;
@@ -73,16 +73,16 @@ export function assembleGalleyHtml(
   paper.sections.forEach((sec) => {
     articleBodyHtml += `<section class="galley-section" style="margin-bottom: 1.75rem;">`;
     if (sec.heading) {
-      articleBodyHtml += `<h2 class="galley-heading" style="font-size: 1.4rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.85rem;">${escapeHtml(sec.heading)}</h2>`;
+      articleBodyHtml += `<h2 class="galley-heading" style="font-size: 1.4rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.85rem;">${sec.heading}</h2>`;
     }
     sec.paragraphs.forEach((p) => {
       const pText = typeof p === 'string' ? p : p.text;
       const isBlockQuote = typeof p === 'string' ? false : Boolean(p.isBlockQuote);
-      const innerHtml = pText.includes('<sup id="fnref-') ? pText : escapeHtml(pText);
+      const innerHtml = pText;
 
       if (isBlockQuote) {
         articleBodyHtml += `
-          <blockquote class="galley-blockquote" style="margin: 1.75rem 2.5rem; padding: 0; border: none; font-style: italic; color: inherit;">
+          <blockquote class="galley-blockquote" style="margin: 1.75rem 2.5rem; padding: 0; border: none; color: inherit;">
             <p class="galley-paragraph" style="font-size: 1.025rem; line-height: 1.75; margin: 0;">${innerHtml}</p>
           </blockquote>
         `;
@@ -147,12 +147,12 @@ export function assembleGalleyHtml(
     <style>
       body { margin: 0; padding: 0; font-family: 'Merriweather', Georgia, serif; line-height: 1.75; color: #1e293b; background: #ffffff; }
       .galley-container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
-      .galley-blockquote { margin: 1.75rem 2.5rem; padding: 0; border: none; font-style: italic; color: inherit; }
+      .galley-blockquote { margin: 1.75rem 2.5rem; padding: 0; border: none; color: inherit; }
       .galley-blockquote .galley-paragraph { font-size: 1.025rem; line-height: 1.75; margin: 0; }
       .galley-figure { margin: 2rem 0; text-align: center; }
       .galley-figure-group { display: flex; gap: 1rem; justify-content: center; align-items: center; flex-wrap: wrap; }
       .galley-figure-img { max-width: 100%; height: auto; border-radius: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: inline-block; }
-      .galley-figure-caption { margin-top: 0.75rem; font-size: 0.9rem; color: #475569; font-style: italic; }
+      .galley-figure-caption { margin-top: 0.75rem; font-size: 0.9rem; color: #475569; }
       .footnote-ref a { color: #2563eb; text-decoration: none; font-weight: 700; padding: 0 3px; }
       .footnotes { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 2px solid #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
       .footnotes-title { font-size: 1.15rem; color: #0f172a; margin-bottom: 1rem; }

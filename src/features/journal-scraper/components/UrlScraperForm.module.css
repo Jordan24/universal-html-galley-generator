@@ -87,21 +87,6 @@
   font-family: inherit;
 }
 
-.samplePill {
-  font-size: 0.75rem;
-  color: var(--accent-primary);
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  align-self: flex-start;
-  transition: background var(--transition-fast);
-}
-
-.samplePill:hover {
-  background: rgba(59, 130, 246, 0.22);
-}
 
 .statusCard {
   display: flex;

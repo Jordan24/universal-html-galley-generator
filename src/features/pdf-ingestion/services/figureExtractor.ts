@@ -1,5 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { ParsedFigure } from '../../../shared/types/galleyTypes';
+import { stripTags, cleanUpHtmlTags } from './pdfParser';
 
 interface TextLine {
   y: number;
@@ -217,31 +218,32 @@ export function extractFigureCaptionLineKeys(pageLinesMap: { pageNum: number; li
 
     p.lines.forEach((l) => {
       const txt = l.text.trim();
-      if (!txt || l.y < 55 || l.y > 740) return;
+      const plainTxt = stripTags(l.text).trim();
+      if (!plainTxt || l.y < 55 || l.y > 740) return;
 
-      const figMatch = txt.match(/^fig(ure)?\.?\s*(\d+)/i);
+      const figMatch = plainTxt.match(/^fig(ure)?\.?\s*(\d+)/i);
       if (figMatch) {
         if (currentFigNum !== null && currentCaption) {
-          pageCapMap.set(currentFigNum, currentCaption.trim());
+          pageCapMap.set(currentFigNum, cleanUpHtmlTags(currentCaption));
         }
         currentFigNum = parseInt(figMatch[2], 10);
         currentCaption = txt;
         figureCaptionLineKeys.add(`${p.pageNum}_${l.y}`);
       } else if (currentFigNum !== null) {
-        const isContinuation = /^\s*\(Source:|\bphoto by\b|\btaken\b/i.test(txt) ||
-          (!txt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b|\bMethods\b)/i) &&
-           (currentCaption.endsWith('-') || !currentCaption.trim().endsWith('.') || txt.startsWith('(') || txt.startsWith('by ')));
+        const isContinuation = /^\s*\(Source:|\bphoto by\b|\btaken\b/i.test(plainTxt) ||
+          (!plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b|\bMethods\b)/i) &&
+           (currentCaption.endsWith('-') || !stripTags(currentCaption).trim().endsWith('.') || plainTxt.startsWith('(') || plainTxt.startsWith('by ')));
 
         if (isContinuation) {
           currentCaption += ' ' + txt;
           figureCaptionLineKeys.add(`${p.pageNum}_${l.y}`);
-          if (txt.includes(')') || (txt.endsWith('.') && !txt.match(/\b(e\.g|i\.e|vol|no|pp)\.$/i))) {
-            pageCapMap.set(currentFigNum, currentCaption.trim());
+          if (plainTxt.includes(')') || (plainTxt.endsWith('.') && !plainTxt.match(/\b(e\.g|i\.e|vol|no|pp)\.$/i))) {
+            pageCapMap.set(currentFigNum, cleanUpHtmlTags(currentCaption));
             currentFigNum = null;
             currentCaption = '';
           }
         } else {
-          pageCapMap.set(currentFigNum, currentCaption.trim());
+          pageCapMap.set(currentFigNum, cleanUpHtmlTags(currentCaption));
           currentFigNum = null;
           currentCaption = '';
         }
@@ -249,7 +251,7 @@ export function extractFigureCaptionLineKeys(pageLinesMap: { pageNum: number; li
     });
 
     if (currentFigNum !== null && currentCaption) {
-      pageCapMap.set(currentFigNum, currentCaption.trim());
+      pageCapMap.set(currentFigNum, cleanUpHtmlTags(currentCaption));
     }
     if (pageCapMap.size > 0) {
       captionsByPage.set(p.pageNum, pageCapMap);
@@ -276,9 +278,9 @@ function findCaptionForPage(
   const figRegex = new RegExp(`^(fig(ure)?\\.?\\s*${figIndex}[:\\.\\s].*)`, 'i');
 
   for (const l of pageLines) {
-    const txt = l.text.trim();
-    if (figRegex.test(txt)) {
-      return txt;
+    const plainTxt = stripTags(l.text).trim();
+    if (figRegex.test(plainTxt)) {
+      return cleanUpHtmlTags(l.text);
     }
   }
 

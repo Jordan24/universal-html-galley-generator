@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, Monitor, Tablet, Smartphone, ShieldCheck, RefreshCw } from 'lucide-react';
 import styles from './PreviewSandbox.module.css';
 
@@ -18,6 +18,22 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
   onRefresh,
 }) => {
   const [viewport, setViewport] = useState<ViewportMode>('desktop');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  useEffect(() => {
+    if (!isSpinning) return;
+    const timer = setTimeout(() => setIsSpinning(false), 600);
+    return () => clearTimeout(timer);
+  }, [isSpinning]);
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+    setIsSpinning(true);
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
 
   const getViewportWidth = (): string => {
     switch (viewport) {
@@ -80,11 +96,11 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
           {onRefresh && (
             <button
               className={styles.deviceBtn}
-              onClick={onRefresh}
+              onClick={handleRefresh}
               aria-label="Refresh live preview sandbox"
               title="Refresh preview"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} className={isSpinning ? 'animate-spin' : ''} />
             </button>
           )}
         </div>
@@ -93,7 +109,7 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
       <div className={styles.frameViewportWrapper}>
         {assembledHtml ? (
           <iframe
-            key={viewport}
+            key={`${viewport}-${refreshKey}`}
             className={styles.iframe}
             style={{ width: getViewportWidth() }}
             srcDoc={assembledHtml}

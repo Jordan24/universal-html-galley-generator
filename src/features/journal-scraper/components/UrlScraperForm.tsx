@@ -94,13 +94,6 @@ export const UrlScraperForm: React.FC<UrlScraperFormProps> = ({
             {isLoading ? 'Scraping...' : 'Fetch'}
           </button>
         </div>
-        <button
-          className={styles.samplePill}
-          onClick={() => handleUrlChange('https://nature.com/articles/s41586-024-00000-0')}
-          title="Use sample journal URL"
-        >
-          Prefill Sample Journal URL
-        </button>
       </div>
 
       <div className={styles.inputGroup}>
