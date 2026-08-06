@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, Monitor, Tablet, Smartphone, ShieldCheck, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Eye, Monitor, Tablet, Smartphone, ShieldCheck, RefreshCw, Edit3 } from 'lucide-react';
+import { EditorToolbar } from './EditorToolbar';
+import { getToolbarState, ToolbarState } from '../services/editorCommands';
 import styles from './PreviewSandbox.module.css';
 
 interface PreviewSandboxProps {
@@ -7,6 +9,7 @@ interface PreviewSandboxProps {
   hasPaper?: boolean;
   hasTemplate?: boolean;
   onRefresh?: () => void;
+  onHtmlChange?: (updatedHtml: string) => void;
 }
 
 type ViewportMode = 'desktop' | 'tablet' | 'mobile';
@@ -16,16 +19,124 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
   hasPaper = false,
   hasTemplate = false,
   onRefresh,
+  onHtmlChange,
 }) => {
   const [viewport, setViewport] = useState<ViewportMode>('desktop');
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(true);
+  const [iframeDoc, setIframeDoc] = useState<Document | null>(null);
+
+  // Maintain local srcDoc state to prevent iframe reload on internal typing
+  const [iframeSrcDoc, setIframeSrcDoc] = useState<string | null>(assembledHtml);
+  const currentHtmlRef = useRef<string | null>(assembledHtml);
+
+  const [toolbarState, setToolbarState] = useState<ToolbarState>({
+    isBold: false,
+    isItalic: false,
+    isUnderline: false,
+    isSuperscript: false,
+    isSubscript: false,
+    blockTag: 'p',
+    fontSize: '3',
+  });
+
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!isSpinning) return;
     const timer = setTimeout(() => setIsSpinning(false), 600);
     return () => clearTimeout(timer);
   }, [isSpinning]);
+
+  // Sync external assembledHtml changes (PDF load, scraper fetch, option changes)
+  useEffect(() => {
+    if (assembledHtml !== currentHtmlRef.current) {
+      currentHtmlRef.current = assembledHtml;
+      setIframeSrcDoc(assembledHtml);
+    }
+  }, [assembledHtml]);
+
+  // Apply editing capability to iframe DOM document
+  const setupIframeEditing = useCallback((doc: Document, enable: boolean) => {
+    const targetEl = doc.querySelector('.galley-article-body') ||
+                     doc.querySelector('.galley-container') ||
+                     doc.body;
+
+    if (!targetEl) return;
+
+    if (enable) {
+      (targetEl as HTMLElement).contentEditable = 'true';
+
+      // Inject hover/focus helper style into iframe head if not present
+      if (!doc.getElementById('galley-edit-styles')) {
+        const styleEl = doc.createElement('style');
+        styleEl.id = 'galley-edit-styles';
+        styleEl.textContent = `
+          [contenteditable="true"]:focus { outline: 2px dashed rgba(59, 130, 246, 0.5); outline-offset: 4px; border-radius: 4px; }
+          .galley-section:hover, .galley-heading:hover, .galley-paragraph:hover { background: rgba(59, 130, 246, 0.02); }
+        `;
+        doc.head.appendChild(styleEl);
+      }
+    } else {
+      (targetEl as HTMLElement).contentEditable = 'false';
+      const existingStyle = doc.getElementById('galley-edit-styles');
+      if (existingStyle) existingStyle.remove();
+    }
+  }, []);
+
+  // Handle internal typing and DOM editing inside iframe
+  const handleDomEvent = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
+
+    const doc = iframe.contentDocument;
+    const newHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+
+    // Save internal edit so useEffect ignores this change for srcDoc updating
+    currentHtmlRef.current = newHtml;
+
+    if (onHtmlChange) {
+      onHtmlChange(newHtml);
+    }
+
+    setToolbarState(getToolbarState(doc));
+  }, [onHtmlChange]);
+
+  const handleIframeLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
+
+    const doc = iframe.contentDocument;
+    setIframeDoc(doc);
+
+    setupIframeEditing(doc, isEditMode);
+
+    const handleInput = () => {
+      handleDomEvent();
+    };
+
+    const handleSelection = () => {
+      setToolbarState(getToolbarState(doc));
+    };
+
+    doc.addEventListener('input', handleInput);
+    doc.addEventListener('keyup', handleInput);
+    doc.addEventListener('selectionchange', handleSelection);
+    doc.addEventListener('blur', handleInput, true);
+
+  }, [isEditMode, handleDomEvent, setupIframeEditing]);
+
+  // Sync edit mode toggle changes
+  useEffect(() => {
+    if (iframeDoc) {
+      setupIframeEditing(iframeDoc, isEditMode);
+    }
+  }, [isEditMode, iframeDoc, setupIframeEditing]);
+
+  const handleToggleEditMode = () => {
+    setIsEditMode(prev => !prev);
+  };
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
@@ -62,16 +173,33 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
 
   return (
     <div className={styles.sandboxContainer}>
+      {/* Upper Control Bar */}
       <div className={styles.toolbar}>
         <div className={styles.titleGroup}>
           <Eye size={18} style={{ color: 'var(--accent-primary)' }} />
           <span>Live Isolated Preview Sandbox</span>
+          {isEditMode && assembledHtml && (
+            <span className={styles.editBadge}>
+              <Edit3 size={11} /> Edit Mode Active
+            </span>
+          )}
           <span style={{ fontSize: '0.725rem', opacity: 0.7, marginLeft: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <ShieldCheck size={14} style={{ color: 'var(--accent-emerald)' }} /> Zero CSS Leakage
           </span>
         </div>
 
         <div className={styles.deviceControls}>
+          {assembledHtml && (
+            <button
+              className={`${styles.editToggleBtn} ${isEditMode ? styles.editToggleBtnActive : ''}`}
+              onClick={handleToggleEditMode}
+              aria-label="Toggle Live Edit Mode"
+              title={isEditMode ? 'Disable Editing' : 'Enable Live Text & Formatting Edits'}
+            >
+              <Edit3 size={14} /> {isEditMode ? 'Editing On' : 'Edit Mode'}
+            </button>
+          )}
+
           <button
             className={`${styles.deviceBtn} ${viewport === 'desktop' ? styles.deviceBtnActive : ''}`}
             onClick={() => setViewport('desktop')}
@@ -106,13 +234,25 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
         </div>
       </div>
 
+      {/* Rich Text Formatting Toolbar */}
+      {assembledHtml && isEditMode && (
+        <EditorToolbar
+          iframeDoc={iframeDoc}
+          toolbarState={toolbarState}
+          onResetOriginal={onRefresh}
+        />
+      )}
+
+      {/* Live Preview Viewport */}
       <div className={styles.frameViewportWrapper}>
         {assembledHtml ? (
           <iframe
+            ref={iframeRef}
             key={`${viewport}-${refreshKey}`}
             className={styles.iframe}
             style={{ width: getViewportWidth() }}
-            srcDoc={assembledHtml}
+            srcDoc={iframeSrcDoc ?? undefined}
+            onLoad={handleIframeLoad}
             title="Live Galley Isolated Preview Sandbox"
             sandbox="allow-same-origin allow-scripts allow-popups"
           />

@@ -76,6 +76,7 @@ export const App: React.FC = () => {
             assembledHtml={assembledHtml}
             hasPaper={Boolean(parsedPaper)}
             hasTemplate={Boolean(scrapedTemplate)}
+            onHtmlChange={setAssembledHtml}
             onRefresh={() => {
               if (parsedPaper) {
                 setAssembledHtml(assembleGalleyHtml(parsedPaper, scrapedTemplate, galleyOptions));
