@@ -30,6 +30,15 @@ export const App: React.FC = () => {
     showTitleInBody: true,
     showAuthorsInBody: true,
     showAbstractInBody: true,
+    textAlign: 'justify',
+    fontFamily: 'serif',
+    lineHeight: 'comfortable',
+    headingNumbering: 'none',
+    headingTransform: 'none',
+    footnoteStyle: 'bottom-endnotes',
+    abstractStyle: 'standard',
+    abstractCardColor: '#3b82f6',
+    containerWidth: 'standard',
   });
 
   const handleToggleLeftPanel = () => {

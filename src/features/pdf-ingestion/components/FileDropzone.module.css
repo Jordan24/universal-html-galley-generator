@@ -4,6 +4,8 @@
   border-radius: var(--radius-lg);
   padding: 1.25rem 1.25rem;
   height: 180px;
+  min-height: 180px;
+  flex-shrink: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

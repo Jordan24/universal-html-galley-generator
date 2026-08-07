@@ -112,6 +112,7 @@
   background: var(--bg-viewport);
   padding: 1rem;
   overflow: auto;
+  overscroll-behavior: contain;
   min-height: 0;
 }
 

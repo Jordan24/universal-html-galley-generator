@@ -1,6 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { FootnoteItem, ParsedPaper, PaperSection, ParsedFigure } from '../../../shared/types/galleyTypes';
 import { linkifyHtml, consolidateAdjacentAnchors } from '../../../shared/utils/linkifier';
+import { renderSuperscriptRefHtml } from '../../galley-builder/services/footnoteAnchors';
 
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { extractFiguresFromPdf, extractFigureCaptionLineKeys } from './figureExtractor';
@@ -487,7 +488,7 @@ function injectBodyFootnoteSuperscripts(sections: PaperSection[], footnotes: Foo
       let formatted = p.text;
       footnotes.forEach(fn => {
         const regex = new RegExp(`(\\b|\\.)\\s*\\[?${fn.id}\\]?\\s+(?=[A-Z"“'‘\\(\\s]|$)`, 'g');
-        formatted = formatted.replace(regex, `$1 <sup id="${fn.refAnchorId}" class="footnote-ref" role="doc-noteref"><a href="#${fn.footnoteAnchorId}">${fn.label}</a></sup> `);
+        formatted = formatted.replace(regex, `$1 ${renderSuperscriptRefHtml(fn)} `);
       });
       return { text: formatted, isBlockQuote: p.isBlockQuote };
     }),

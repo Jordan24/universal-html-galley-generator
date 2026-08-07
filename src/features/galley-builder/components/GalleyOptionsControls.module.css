@@ -128,3 +128,211 @@
 .switchInput:checked + .switchSlider::before {
   transform: translateX(20px);
 }
+
+/* Option Row & Control Group */
+.optionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.optionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Segmented Control Buttons */
+.segmentedGroup {
+  display: flex;
+  background: var(--bg-base, #090d16);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  gap: 3px;
+}
+
+.segmentedBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.segmentedBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+}
+
+.segmentedBtnActive {
+  color: #ffffff;
+  background: var(--accent-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.segmentedBtnActive:hover {
+  background: var(--accent-primary-hover);
+}
+
+/* Custom Styled Select Input */
+.selectInput {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.selectInput:focus {
+  border-color: var(--accent-primary);
+}
+
+.colorPickerContainer {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border-subtle, rgba(255, 255, 255, 0.1));
+}
+
+.colorPickerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.colorPickerLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.colorValueText {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+}
+
+.colorSelectorRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.presetColorBtn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.presetColorBtn:hover {
+  transform: scale(1.15);
+}
+
+.presetColorBtnActive {
+  transform: scale(1.15);
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px var(--bg-surface, #0f172a), 0 0 0 3px var(--accent-primary, #3b82f6);
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background-color: var(--border-subtle, rgba(255, 255, 255, 0.15));
+  margin: 0 0.25rem;
+  align-self: center;
+}
+
+.customColorWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+  padding: 2px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.customColorWrapper:hover {
+  transform: scale(1.15);
+}
+
+.customColorWrapperActive {
+  box-shadow: 0 0 0 2px var(--bg-surface, #0f172a), 0 0 0 3px var(--accent-primary, #3b82f6);
+}
+
+.colorInput {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--bg-surface, #0f172a);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  display: block;
+  box-sizing: border-box;
+}
+
+.colorInput::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.colorInput::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.colorInput::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.customColorIcon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+}
+
+

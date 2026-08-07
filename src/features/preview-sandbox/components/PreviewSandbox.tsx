@@ -52,12 +52,22 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
   });
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const scrollPosRef = useRef<{ top: number; left: number }>({ top: 0, left: 0 });
+  const prevPaperTitleRef = useRef<string | undefined>(paperTitle);
 
   useEffect(() => {
     if (!isSpinning) return;
     const timer = setTimeout(() => setIsSpinning(false), 600);
     return () => clearTimeout(timer);
   }, [isSpinning]);
+
+  // Reset scroll position if paper changes
+  useEffect(() => {
+    if (paperTitle !== prevPaperTitleRef.current) {
+      prevPaperTitleRef.current = paperTitle;
+      scrollPosRef.current = { top: 0, left: 0 };
+    }
+  }, [paperTitle]);
 
   // Sync external assembledHtml changes (PDF load, scraper fetch, option changes)
   useEffect(() => {
@@ -112,9 +122,34 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
     if (!iframe || !iframe.contentDocument) return;
 
     const doc = iframe.contentDocument;
+    const win = iframe.contentWindow;
     setIframeDoc(doc);
 
     setupIframeEditing(doc);
+
+    // Restore saved scroll position after iframe reload
+    const restoreScroll = () => {
+      const { top, left } = scrollPosRef.current;
+      if (win && (top > 0 || left > 0)) {
+        win.scrollTo({ top, left, behavior: 'instant' });
+      }
+    };
+
+    restoreScroll();
+    requestAnimationFrame(() => {
+      restoreScroll();
+      requestAnimationFrame(() => restoreScroll());
+    });
+    setTimeout(restoreScroll, 50);
+    setTimeout(restoreScroll, 150);
+
+    const handleScroll = () => {
+      if (win && doc) {
+        const top = win.scrollY || doc.documentElement.scrollTop || doc.body.scrollTop || 0;
+        const left = win.scrollX || doc.documentElement.scrollLeft || doc.body.scrollLeft || 0;
+        scrollPosRef.current = { top, left };
+      }
+    };
 
     const handleInput = () => {
       handleDomEvent();
@@ -129,6 +164,10 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
     doc.addEventListener('selectionchange', handleSelection);
     doc.addEventListener('blur', handleInput, true);
 
+    doc.addEventListener('scroll', handleScroll, { passive: true });
+    if (win) {
+      win.addEventListener('scroll', handleScroll, { passive: true });
+    }
   }, [handleDomEvent, setupIframeEditing]);
 
   // Ensure iframe editing remains active when iframe document is ready
@@ -139,6 +178,7 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
   }, [iframeDoc, setupIframeEditing]);
 
   const handleRefresh = () => {
+    scrollPosRef.current = { top: 0, left: 0 };
     setRefreshKey(prev => prev + 1);
     setIsSpinning(true);
     if (onRefresh) {

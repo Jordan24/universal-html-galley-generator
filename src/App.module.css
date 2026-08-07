@@ -8,8 +8,9 @@
   width: 100%;
   margin: 0 auto;
   height: calc(100vh - 64px);
-  min-height: 400px;
+  min-height: 0;
   box-sizing: border-box;
+  overflow: hidden;
   transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1), gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -17,7 +18,7 @@
   grid-template-columns: 0px 1fr;
   gap: 0;
   height: calc(100vh - 64px);
-  min-height: 400px;
+  min-height: 0;
 }
 
 .leftControlColumn {
@@ -25,12 +26,37 @@
   flex-direction: column;
   gap: 1.25rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
   min-width: 0;
   min-height: 0;
-  padding-right: 0.25rem;
+  max-height: 100%;
+  padding-right: 0.35rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
   transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s, max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 1;
   visibility: visible;
+}
+
+.leftControlColumn > * {
+  flex-shrink: 0;
+}
+
+.leftControlColumn::-webkit-scrollbar {
+  width: 6px;
+}
+
+.leftControlColumn::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.leftControlColumn::-webkit-scrollbar-thumb {
+  background-color: var(--border-subtle);
+  border-radius: 4px;
+}
+
+.leftControlColumn::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-primary);
 }
 
 .leftControlColumnCollapsed {
@@ -51,6 +77,7 @@
   height: 100%;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
 @media (max-width: 1080px) {

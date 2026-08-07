@@ -1,4 +1,6 @@
 import { FootnoteItem } from '../../../shared/types/galleyTypes';
+import { escapeHtml } from '../../../shared/utils/linkifier';
+import { stripTags } from '../../pdf-ingestion/services/pdfParser';
 
 export function renderBidirectionalFootnoteListHtml(footnotes: FootnoteItem[]): string {
   if (footnotes.length === 0) return '';
@@ -23,5 +25,8 @@ export function renderBidirectionalFootnoteListHtml(footnotes: FootnoteItem[]): 
 }
 
 export function renderSuperscriptRefHtml(fn: FootnoteItem): string {
-  return `<sup id="${fn.refAnchorId}" class="footnote-ref" role="doc-noteref"><a href="#${fn.footnoteAnchorId}" aria-describedby="footnote-label">${fn.label}</a></sup>`;
+  const plainText = stripTags(fn.text || '').trim();
+  const popoverText = escapeHtml(plainText || `Footnote ${fn.label}`);
+  return `<sup id="${fn.refAnchorId}" class="footnote-ref" role="doc-noteref" data-popover="${popoverText}" title="${popoverText}"><a href="#${fn.footnoteAnchorId}" aria-describedby="footnote-label">${fn.label}</a></sup>`;
 }
+

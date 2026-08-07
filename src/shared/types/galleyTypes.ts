@@ -60,9 +60,39 @@ export interface CORSProxyOption {
 
 export type ThemeMode = 'dark' | 'light';
 
+export type TextAlignmentOption = 'justify' | 'left';
+export type FontFamilyOption = 'serif' | 'sans-serif' | 'inherit';
+export type LineHeightOption = 'compact' | 'comfortable' | 'loose';
+export type HeadingNumberingOption = 'none' | 'decimal' | 'roman';
+export type HeadingTransformOption = 'none' | 'uppercase';
+export type FootnoteStyleOption = 'bottom-endnotes' | 'popover';
+export type AbstractStyleOption = 'standard' | 'card';
+export type ContainerWidthOption = 'narrow' | 'standard' | 'wide';
+
 export interface GalleyDisplayOptions {
+  // Card 1: Header & Visibility
   showTitleInBody: boolean;
   showAuthorsInBody: boolean;
   showAbstractInBody: boolean;
+
+  // Card 2: Typography & Alignment
+  textAlign: TextAlignmentOption;
+  fontFamily: FontFamilyOption;
+  lineHeight: LineHeightOption;
+
+  // Card 3: Headings & Hierarchy
+  headingNumbering: HeadingNumberingOption;
+  headingTransform: HeadingTransformOption;
+
+  // Card 4: Footnote & References
+  footnoteStyle: FootnoteStyleOption;
+
+  // Card 5: Abstract Presentation
+  abstractStyle: AbstractStyleOption;
+  abstractCardColor?: string;
+
+  // Card 6: Reading Container Width
+  containerWidth: ContainerWidthOption;
 }
+
 
