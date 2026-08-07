@@ -7,13 +7,17 @@
   max-width: 1800px;
   width: 100%;
   margin: 0 auto;
-  min-height: calc(100vh - 64px);
+  height: calc(100vh - 64px);
+  min-height: 400px;
+  box-sizing: border-box;
   transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1), gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mainLayoutCollapsed {
   grid-template-columns: 0px 1fr;
   gap: 0;
+  height: calc(100vh - 64px);
+  min-height: 400px;
 }
 
 .leftControlColumn {
@@ -22,7 +26,9 @@
   gap: 1.25rem;
   overflow-y: auto;
   min-width: 0;
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s;
+  min-height: 0;
+  padding-right: 0.25rem;
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s, max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 1;
   visibility: visible;
 }
@@ -32,23 +38,32 @@
   visibility: hidden;
   pointer-events: none;
   overflow: hidden;
+  height: 0;
+  max-height: 0;
+  margin: 0;
+  padding: 0;
   transform: translateX(-16px);
 }
 
 .rightPreviewColumn {
   display: flex;
   flex-direction: column;
-  min-height: 600px;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
 }
 
 @media (max-width: 1080px) {
   .mainLayout {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: calc(100vh - 64px);
   }
 
   .mainLayoutCollapsed {
     grid-template-columns: 1fr;
+    height: calc(100vh - 64px);
+    min-height: 400px;
   }
 
   .leftControlColumnCollapsed {
