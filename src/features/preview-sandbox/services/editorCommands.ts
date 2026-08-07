@@ -4,6 +4,10 @@ export interface ToolbarState {
   isUnderline: boolean;
   isSuperscript: boolean;
   isSubscript: boolean;
+  isJustifyLeft: boolean;
+  isJustifyCenter: boolean;
+  isJustifyRight: boolean;
+  isJustifyFull: boolean;
   blockTag: string;
   fontSize: string;
 }
@@ -50,6 +54,10 @@ export function getToolbarState(doc: Document): ToolbarState {
   let isUnderline = false;
   let isSuperscript = false;
   let isSubscript = false;
+  let isJustifyLeft = false;
+  let isJustifyCenter = false;
+  let isJustifyRight = false;
+  let isJustifyFull = false;
   let blockTag = 'p';
   let fontSize = '3';
 
@@ -59,6 +67,10 @@ export function getToolbarState(doc: Document): ToolbarState {
     isUnderline = doc.queryCommandState('underline');
     isSuperscript = doc.queryCommandState('superscript');
     isSubscript = doc.queryCommandState('subscript');
+    isJustifyLeft = doc.queryCommandState('justifyLeft');
+    isJustifyCenter = doc.queryCommandState('justifyCenter');
+    isJustifyRight = doc.queryCommandState('justifyRight');
+    isJustifyFull = doc.queryCommandState('justifyFull');
 
     const blockVal = doc.queryCommandValue('formatBlock');
     if (blockVal) {
@@ -79,6 +91,10 @@ export function getToolbarState(doc: Document): ToolbarState {
     isUnderline,
     isSuperscript,
     isSubscript,
+    isJustifyLeft,
+    isJustifyCenter,
+    isJustifyRight,
+    isJustifyFull,
     blockTag: blockTag || 'p',
     fontSize: fontSize || '3',
   };

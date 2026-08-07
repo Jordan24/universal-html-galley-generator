@@ -3,6 +3,7 @@ import { Globe, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ScrapedTemplate } from '../../../shared/types/galleyTypes';
 import { PROXY_OPTIONS, fetchHtmlViaProxy } from '../services/corsProxy';
 import { parseAndSanitizeJournalDom } from '../services/domSanitizer';
+import { ConfirmationModal } from '../../../shared/components/ConfirmationModal';
 import styles from './UrlScraperForm.module.css';
 
 interface UrlScraperFormProps {
@@ -10,6 +11,7 @@ interface UrlScraperFormProps {
   onTemplateScraped: (template: ScrapedTemplate | null) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
+  hasEdits?: boolean;
 }
 
 const STORAGE_KEY_TARGET_URL = 'target_article_url';
@@ -19,6 +21,7 @@ export const UrlScraperForm: React.FC<UrlScraperFormProps> = ({
   onTemplateScraped,
   isLoading,
   setIsLoading,
+  hasEdits = false,
 }) => {
   const [urlInput, setUrlInput] = useState<string>(() => {
     try {
@@ -30,6 +33,7 @@ export const UrlScraperForm: React.FC<UrlScraperFormProps> = ({
   const [proxyId, setProxyId] = useState('allorigins');
   const [customProxyUrl, setCustomProxyUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleUrlChange = (value: string) => {
     setUrlInput(value);
@@ -40,12 +44,7 @@ export const UrlScraperForm: React.FC<UrlScraperFormProps> = ({
     }
   };
 
-  const handleFetch = async () => {
-    if (!urlInput.trim()) {
-      alert('Please enter a valid target journal article URL.');
-      return;
-    }
-
+  const performFetch = async () => {
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -63,6 +62,24 @@ export const UrlScraperForm: React.FC<UrlScraperFormProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFetch = async () => {
+    if (!urlInput.trim()) {
+      alert('Please enter a valid target journal article URL.');
+      return;
+    }
+
+    if (hasEdits) {
+      setShowConfirmation(true);
+    } else {
+      await performFetch();
+    }
+  };
+
+  const handleConfirmFetch = async () => {
+    setShowConfirmation(false);
+    await performFetch();
   };
 
   return (
@@ -150,6 +167,16 @@ export const UrlScraperForm: React.FC<UrlScraperFormProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={showConfirmation}
+        title="Discard Unsaved Edits?"
+        message="You have made edits to the preview. Fetching a new journal website template will overwrite all of your preview modifications. Do you want to continue?"
+        confirmText="Continue & Fetch"
+        cancelText="Cancel"
+        onConfirm={handleConfirmFetch}
+        onCancel={() => setShowConfirmation(false)}
+      />
     </div>
   );
 };

@@ -5,6 +5,10 @@ import {
   Underline,
   Superscript,
   Subscript,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
   Link,
   Unlink,
   Indent,
@@ -133,7 +137,52 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
       <div className={styles.divider} />
 
-      {/* Group 3: Links */}
+      {/* Group 3: Text Alignment / Justification */}
+      <div className={styles.group}>
+        <button
+          type="button"
+          className={`${styles.toolBtn} ${toolbarState.isJustifyLeft ? styles.activeBtn : ''}`}
+          onMouseDown={(e) => handleAction(e, () => executeCommand(iframeDoc, 'justifyLeft'))}
+          aria-label="Align Left"
+          title="Align Left"
+        >
+          <AlignLeft size={14} />
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.toolBtn} ${toolbarState.isJustifyCenter ? styles.activeBtn : ''}`}
+          onMouseDown={(e) => handleAction(e, () => executeCommand(iframeDoc, 'justifyCenter'))}
+          aria-label="Align Center"
+          title="Align Center"
+        >
+          <AlignCenter size={14} />
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.toolBtn} ${toolbarState.isJustifyRight ? styles.activeBtn : ''}`}
+          onMouseDown={(e) => handleAction(e, () => executeCommand(iframeDoc, 'justifyRight'))}
+          aria-label="Align Right"
+          title="Align Right"
+        >
+          <AlignRight size={14} />
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.toolBtn} ${toolbarState.isJustifyFull ? styles.activeBtn : ''}`}
+          onMouseDown={(e) => handleAction(e, () => executeCommand(iframeDoc, 'justifyFull'))}
+          aria-label="Justify Full"
+          title="Justify Full"
+        >
+          <AlignJustify size={14} />
+        </button>
+      </div>
+
+      <div className={styles.divider} />
+
+      {/* Group 4: Links */}
       <div className={styles.group}>
         <button
           type="button"
@@ -158,7 +207,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
       <div className={styles.divider} />
 
-      {/* Group 4: Indentation */}
+      {/* Group 5: Indentation */}
       <div className={styles.group}>
         <button
           type="button"
@@ -183,7 +232,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
       <div className={styles.divider} />
 
-      {/* Group 5: History & Revert */}
+      {/* Group 6: History & Revert */}
       <div className={styles.group}>
         <button
           type="button"

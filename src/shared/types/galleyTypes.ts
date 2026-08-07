@@ -63,5 +63,6 @@ export type ThemeMode = 'dark' | 'light';
 export interface GalleyDisplayOptions {
   showTitleInBody: boolean;
   showAuthorsInBody: boolean;
+  showAbstractInBody: boolean;
 }
 

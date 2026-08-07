@@ -19,6 +19,8 @@
   --text-secondary: #9ca3af;
   --text-tertiary: #6b7280;
   
+  --bg-viewport: #090d16;
+  
   --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 15px rgba(59, 130, 246, 0.3);
 }
@@ -41,6 +43,8 @@
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-tertiary: #94a3b8;
+
+  --bg-viewport: #e2e8f0;
 
   --shadow-card: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
   --shadow-glow: 0 0 15px rgba(37, 99, 235, 0.2);

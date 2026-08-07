@@ -10,6 +10,7 @@ export function assembleGalleyHtml(
   const paperTitle = paper.title || 'Academic Galley Article';
   const showTitle = options?.showTitleInBody ?? true;
   const showAuthors = options?.showAuthorsInBody ?? true;
+  const showAbstract = options?.showAbstractInBody ?? true;
 
   const titleHtml = showTitle && paper.title
     ? `<h1 class="galley-article-title" style="font-size: 2rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.75rem;">${paper.title}</h1>`
@@ -21,10 +22,10 @@ export function assembleGalleyHtml(
       </div>`
     : '';
 
-  const abstractHtml = paper.abstract
-    ? `<div class="galley-article-abstract" style="background: rgba(59, 130, 246, 0.06); border-left: 4px solid #3b82f6; padding: 1.25rem 1.5rem; border-radius: 6px; margin-bottom: 2rem;">
-        <h3 style="margin-top: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: #3b82f6;">Abstract</h3>
-        <p style="margin: 0; font-size: 1rem; line-height: 1.7;">${paper.abstract}</p>
+  const abstractHtml = showAbstract && paper.abstract
+    ? `<div class="galley-article-abstract" style="margin-bottom: 2rem;">
+        <h2 class="galley-heading" style="font-size: 1.4rem; font-weight: 700; margin-top: 0; margin-bottom: 0.85rem;">Abstract</h2>
+        <p class="galley-paragraph" style="font-size: 1.05rem; line-height: 1.75; margin-bottom: 1.25rem; text-align: justify;">${paper.abstract}</p>
       </div>`
     : '';
 
@@ -176,11 +177,14 @@ ${footerMarkup}
 
 function generateDefaultHeader(targetUrl?: string): string {
   const domain = targetUrl ? new URL(targetUrl).hostname : 'Academic Journal';
+  const jaLogoSvg = `<svg viewBox="0 0 143.02 164.9" style="width: 16px; height: 16px; fill: #ffffff; vertical-align: middle;" aria-hidden="true"><path d="M87.38,68.45l-5.62-12.23-32.83,16.11,22.58-43.23,23.76,45.22,21.64,37.82,2.16,3.78s7.5,14.07,9.33,14.07l14.62-.04-34.99-60.68c-4.1-7.58-31.81-60.3-36.54-69.26l-37.5,71.11c-2.93,5.55-7.36,9.99-12.15,13.79C15.36,89.57,7.99,92.24,0,92.22v13.54c7.13.03,14.1-1.36,20.62-4.33l44.38-21.92.08-.04c-.02,6.14.87,14.72.86,16.48l-.09,30.35c-.02,8.04-4.3,15.05-10.45,19.74-16.69,12.92-41.46.39-41.57-20.55H0c.45,35.77,44.9,53.1,69.2,26.46,6.42-7.06,10.39-15.93,10.42-25.58l-1.21-52.83"/></svg>`;
   return `
     <header class="galley-default-header" style="background: #0f172a; color: #ffffff; padding: 1.5rem 2rem; border-bottom: 3px solid #3b82f6; font-family: system-ui, -apple-system, sans-serif;">
       <div style="max-width: 860px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
         <span style="font-size: 1.15rem; font-weight: 700; color: #f8fafc;">${escapeHtml(domain)}</span>
-        <span style="font-size: 0.8rem; background: #3b82f6; color: #fff; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 600; text-transform: uppercase;">HTML Galley</span>
+        <span style="font-size: 0.8rem; background: #3b82f6; color: #fff; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; display: inline-flex; align-items: center; gap: 0.4rem;">
+          ${jaLogoSvg} HTML Galley
+        </span>
       </div>
     </header>
   `;

@@ -13,6 +13,22 @@ interface TextLine {
   text: string;
 }
 
+export function normalizePdfText(text: string): string {
+  if (!text) return '';
+  return text
+    // Normalize Unicode ligatures
+    .replace(/\uFB00/g, 'ff')
+    .replace(/\uFB01/g, 'fi')
+    .replace(/\uFB02/g, 'fl')
+    .replace(/\uFB03/g, 'ffi')
+    .replace(/\uFB04/g, 'ffl')
+    .replace(/\uFB05/g, 'ft')
+    .replace(/\uFB06/g, 'st')
+    // Fix PDF font encoding corruptions where 'ti' ligature was extracted as ';' between letters
+    .replace(/([A-Z])(?:<\/?[^>]+>)*;(?:<\/?[^>]+>)*(?=[A-Z])/g, '$1TI')
+    .replace(/([a-zA-Z])(?:<\/?[^>]+>)*;(?:<\/?[^>]+>)*(?=[a-zA-Z])/g, '$1ti');
+}
+
 export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -26,7 +42,7 @@ export function stripTags(str: string): string {
 }
 
 export function cleanUpHtmlTags(html: string): string {
-  const cleaned = html
+  const cleaned = normalizePdfText(html)
     .replace(/<\/b>(\s*)<b>/g, '$1')
     .replace(/<\/i>(\s*)<i>/g, '$1')
     .replace(/<\/u>(\s*)<u>/g, '$1')
@@ -172,7 +188,8 @@ export async function parsePdfGalleyFile(file: File): Promise<ParsedPaper> {
           const y = item.transform ? item.transform[5] : 0;
           const x = item.transform ? item.transform[4] : 0;
           const { isBold, isItalic, isUnderline } = getFontStyles(item, textContent.styles, page);
-          let chunk = formatTextChunk(item.str, isBold, isItalic, isUnderline);
+          const normalizedStr = normalizePdfText(item.str);
+          let chunk = formatTextChunk(normalizedStr, isBold, isItalic, isUnderline);
 
           if (linkAnnots.length > 0 && chunk.trim()) {
             const itemWidth = (item as any).width || 0;
@@ -246,39 +263,93 @@ function extractStructureFromPageLines(
 
   const { figureCaptionLineKeys } = extractFigureCaptionLineKeys(pageLines);
 
-  // 1. Page 1 Header, Title, Author & Abstract Extraction
+  // 1. Page 1 Header, Title, Author, Abstract & Keywords Extraction
+  const headerLineKeys = new Set<string>();
   const page1Lines = pageLines[0]?.lines || [];
-  const titleLines: string[] = [];
-  let foundAbstract = false;
+  const headerLinesBeforeAbstract: { rawText: string }[] = [];
+  let abstractRaw = '';
+  let keywordsRaw = '';
+  let mode: 'HEADER' | 'ABSTRACT' | 'KEYWORDS' | 'BODY' = 'HEADER';
+  let lastKwY = 0;
+
+  const hasAbstractHeading = page1Lines.some(l => stripTags(l.text).trim().toLowerCase().startsWith('abstract'));
 
   for (const l of page1Lines) {
     const txt = l.text.trim();
     const plainTxt = stripTags(l.text).trim();
     if (!plainTxt || l.y < 55) continue; // Skip running footer
 
+    const lineKey = `1_${l.y}`;
+
+    // Detect Abstract heading start
     if (plainTxt.toLowerCase().startsWith('abstract')) {
-      foundAbstract = true;
-      abstract = txt.replace(/^(\s*<[^>]+>)*abstract[\s\:]*/i, '');
+      mode = 'ABSTRACT';
+      headerLineKeys.add(lineKey);
+      const absContent = txt.replace(/^(\s*<[^>]+>)*abstract[\s\:]*/i, '');
+      if (absContent.trim()) {
+        abstractRaw += absContent;
+      }
       continue;
     }
 
-    if (foundAbstract) {
-      if (plainTxt.toLowerCase().startsWith('keywords') || l.y < 220) {
+    if (mode === 'HEADER') {
+      // Check for top journal header info (volume, DOI, journal URLs)
+      if (l.y > 720 || plainTxt.includes('doi.org') || plainTxt.toLowerCase().includes('journal') || /^https?:\/\//i.test(plainTxt)) {
+        headerLineKeys.add(lineKey);
+        continue;
+      }
+      if (hasAbstractHeading || l.y > 550) {
+        headerLineKeys.add(lineKey);
+        headerLinesBeforeAbstract.push({ rawText: txt });
+      }
+    } else if (mode === 'ABSTRACT') {
+      if (plainTxt.toLowerCase().startsWith('keywords') || plainTxt.toLowerCase().startsWith('key words')) {
+        mode = 'KEYWORDS';
+        lastKwY = l.y;
+        headerLineKeys.add(lineKey);
+        const kwContent = txt.replace(/^(\s*<[^>]+>)*key\s*words[\s\:]*/i, '');
+        if (kwContent.trim()) {
+          keywordsRaw += kwContent;
+        }
+        continue;
+      }
+      // Stop abstract mode if encountering a clear section heading
+      if (plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b)/i)) {
+        mode = 'BODY';
         break;
       }
-      abstract += ' ' + txt;
-    } else if (l.y > 550) {
-      if (titleLines.length < 2) {
-        titleLines.push(txt);
-      } else if (authors.length === 0) {
-        authors.push(cleanUpHtmlTags(txt));
+      headerLineKeys.add(lineKey);
+      abstractRaw += (abstractRaw ? ' ' : '') + txt;
+    } else if (mode === 'KEYWORDS') {
+      if ((lastKwY > 0 && lastKwY - l.y > 40) || plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b)/i)) {
+        mode = 'BODY';
+        break;
       }
+      headerLineKeys.add(lineKey);
+      lastKwY = l.y;
+      keywordsRaw += (keywordsRaw ? ' ' : '') + txt;
     }
   }
 
+  // Parse Title and Authors from headerLinesBeforeAbstract
+  const titleLines: string[] = [];
+  const authorLines: string[] = [];
+  if (headerLinesBeforeAbstract.length === 1) {
+    titleLines.push(headerLinesBeforeAbstract[0].rawText);
+  } else if (headerLinesBeforeAbstract.length > 1) {
+    authorLines.push(headerLinesBeforeAbstract[headerLinesBeforeAbstract.length - 1].rawText);
+    headerLinesBeforeAbstract.slice(0, -1).forEach(item => titleLines.push(item.rawText));
+  }
+
   title = cleanUpHtmlTags(titleLines.join(' '));
-  abstract = linkifyHtml(cleanUpHtmlTags(abstract));
-  authors = authors.map(a => linkifyHtml(cleanUpHtmlTags(a)));
+  authors = authorLines.map(a => linkifyHtml(cleanUpHtmlTags(a)));
+
+  let abstractClean = linkifyHtml(cleanUpHtmlTags(abstractRaw));
+  if (keywordsRaw.trim()) {
+    const keywordsClean = linkifyHtml(cleanUpHtmlTags(keywordsRaw));
+    abstractClean += (abstractClean ? '<br><br>' : '') + `<strong>Keywords:</strong> ${keywordsClean}`;
+  }
+  abstract = abstractClean;
 
   // 2. Dynamic Footnote Extraction across all pages (Y < 220)
   pageLines.forEach(p => {
@@ -317,7 +388,7 @@ function extractStructureFromPageLines(
   pageLines.forEach(p => {
     p.lines.forEach(l => {
       const plainTxt = stripTags(l.text).trim();
-      if (plainTxt && l.y >= 55 && l.y <= 740 && !footnoteLineKeys.has(`${p.pageNum}_${l.y}`) && !figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) {
+      if (plainTxt && l.y >= 55 && l.y <= 740 && !headerLineKeys.has(`${p.pageNum}_${l.y}`) && !footnoteLineKeys.has(`${p.pageNum}_${l.y}`) && !figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) {
         if (l.minX > 30 && l.minX < 200) {
           allMinXs.push(l.minX);
         }
@@ -327,7 +398,7 @@ function extractStructureFromPageLines(
 
   const standardMargin = allMinXs.length > 0 ? Math.min(...allMinXs) : 72;
 
-  // 3. Body Text & Headings Extraction (55 <= Y <= 740, excluding consumed footnote & caption lines)
+  // 3. Body Text & Headings Extraction (55 <= Y <= 740, excluding consumed header, footnote & caption lines)
   let currentSection: PaperSection = { heading: undefined, paragraphs: [] };
   let currentParagraph = '';
   let currentIsBlockQuote = false;
@@ -343,17 +414,12 @@ function extractStructureFromPageLines(
     }
   };
 
-  pageLines.forEach((p, pIdx) => {
+  pageLines.forEach((p) => {
     p.lines.forEach(l => {
       const txt = l.text.trim();
       const plainTxt = stripTags(l.text).trim();
-      if (!plainTxt || l.y < 55 || l.y > 740 || footnoteLineKeys.has(`${p.pageNum}_${l.y}`) || figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) return;
-
-      // Skip Page 1 title/author/abstract lines
-      if (pIdx === 0 && (l.y > 550 || plainTxt.toLowerCase().startsWith('abstract') || foundAbstract)) {
-        if (plainTxt.toLowerCase().startsWith('abstract')) return;
-        if (l.y > 400 && abstract.includes(plainTxt)) return;
-      }
+      const lineKey = `${p.pageNum}_${l.y}`;
+      if (!plainTxt || l.y < 55 || l.y > 740 || headerLineKeys.has(lineKey) || footnoteLineKeys.has(lineKey) || figureCaptionLineKeys.has(lineKey)) return;
 
       // Heading Detection (Numbered, Roman, or short title-cased lines)
       const isHeading = plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b|\bMethods\b|\bResults\b|\bDiscussion\b|\bConclusion\b|\bReferences\b|\bWorks Cited\b|\bAcknowledgements\b)/i) ||
@@ -429,6 +495,7 @@ function injectBodyFootnoteSuperscripts(sections: PaperSection[], footnotes: Foo
 }
 
 function fallbackPlainExtract(fileName: string, fileSize: number, rawText: string): ParsedPaper {
+  const normalizedText = normalizePdfText(rawText);
   return {
     fileName,
     fileSizeBytes: fileSize,
@@ -436,9 +503,9 @@ function fallbackPlainExtract(fileName: string, fileSize: number, rawText: strin
     title: fileName.replace(/\.pdf$/i, ''),
     authors: ['Academic Author(s)'],
     abstract: '',
-    sections: [{ heading: 'Paper Body', paragraphs: [{ text: linkifyHtml(escapeHtml(rawText)), isBlockQuote: false }] }],
+    sections: [{ heading: 'Paper Body', paragraphs: [{ text: linkifyHtml(escapeHtml(normalizedText)), isBlockQuote: false }] }],
     footnotes: [],
     figures: [],
-    rawText,
+    rawText: normalizedText,
   };
 }

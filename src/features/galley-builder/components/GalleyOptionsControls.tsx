@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sliders, Type, User } from 'lucide-react';
+import { Sliders, Type, User, FileText } from 'lucide-react';
 import { GalleyDisplayOptions } from '../../../shared/types/galleyTypes';
 import styles from './GalleyOptionsControls.module.css';
 
@@ -23,6 +23,13 @@ export const GalleyOptionsControls: React.FC<GalleyOptionsControlsProps> = ({
     onOptionsChange({
       ...options,
       showAuthorsInBody: !options.showAuthorsInBody,
+    });
+  };
+
+  const handleToggleAbstract = () => {
+    onOptionsChange({
+      ...options,
+      showAbstractInBody: !options.showAbstractInBody,
     });
   };
 
@@ -77,6 +84,30 @@ export const GalleyOptionsControls: React.FC<GalleyOptionsControlsProps> = ({
               checked={options.showAuthorsInBody}
               onChange={handleToggleAuthors}
               aria-label="Toggle showing authors in body"
+            />
+            <span className={styles.switchSlider} />
+          </div>
+        </label>
+
+        {/* Toggle 3: Abstract in Body */}
+        <label className={styles.toggleRow} htmlFor="toggle-show-abstract">
+          <div className={styles.toggleInfo}>
+            <div className={styles.labelGroup}>
+              <FileText size={16} className={styles.icon} />
+              <span className={styles.toggleLabel}>Show Abstract in Body</span>
+            </div>
+            <span className={styles.toggleHint}>
+              Turn off if abstract is already rendered in the scraped journal header
+            </span>
+          </div>
+          <div className={styles.switchWrapper}>
+            <input
+              id="toggle-show-abstract"
+              type="checkbox"
+              className={styles.switchInput}
+              checked={options.showAbstractInBody}
+              onChange={handleToggleAbstract}
+              aria-label="Toggle showing abstract in body"
             />
             <span className={styles.switchSlider} />
           </div>

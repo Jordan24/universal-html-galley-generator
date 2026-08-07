@@ -10,22 +10,52 @@ import { ExportControls } from './features/export-bundle/components/ExportContro
 import styles from './App.module.css';
 
 export const App: React.FC = () => {
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      return savedTheme;
+    }
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return systemPrefersDark ? 'dark' : 'light';
+  });
   const [parsedPaper, setParsedPaper] = useState<ParsedPaper | null>(null);
   const [scrapedTemplate, setScrapedTemplate] = useState<ScrapedTemplate | null>(null);
   const [assembledHtml, setAssembledHtml] = useState<string | null>(null);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isScraperLoading, setIsScraperLoading] = useState(false);
+  const [hasEdits, setHasEdits] = useState(false);
   const [galleyOptions, setGalleyOptions] = useState<GalleyDisplayOptions>({
     showTitleInBody: true,
     showAuthorsInBody: true,
+    showAbstractInBody: true,
   });
 
-  // Toggle Theme
+  // Keep DOM attribute in sync with theme state
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Listen to system color scheme changes if the user hasn't explicitly set a preference
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+      const savedTheme = localStorage.getItem('theme');
+      if (!savedTheme) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
+  }, []);
+
+  // Toggle Theme and save preference
   const handleToggleTheme = () => {
     const nextTheme: ThemeMode = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme);
+    localStorage.setItem('theme', nextTheme);
   };
 
   // Re-assemble Galley HTML whenever paper, template, or options update
@@ -33,8 +63,10 @@ export const App: React.FC = () => {
     if (parsedPaper) {
       const html = assembleGalleyHtml(parsedPaper, scrapedTemplate, galleyOptions);
       setAssembledHtml(html);
+      setHasEdits(false); // Reset edits when base parameters change
     } else {
       setAssembledHtml(null);
+      setHasEdits(false);
     }
   }, [parsedPaper, scrapedTemplate, galleyOptions]);
 
@@ -57,6 +89,7 @@ export const App: React.FC = () => {
             onTemplateScraped={setScrapedTemplate}
             isLoading={isScraperLoading}
             setIsLoading={setIsScraperLoading}
+            hasEdits={hasEdits}
           />
 
           <GalleyOptionsControls
@@ -76,10 +109,14 @@ export const App: React.FC = () => {
             assembledHtml={assembledHtml}
             hasPaper={Boolean(parsedPaper)}
             hasTemplate={Boolean(scrapedTemplate)}
-            onHtmlChange={setAssembledHtml}
+            onHtmlChange={(updatedHtml) => {
+              setAssembledHtml(updatedHtml);
+              setHasEdits(true);
+            }}
             onRefresh={() => {
               if (parsedPaper) {
                 setAssembledHtml(assembleGalleyHtml(parsedPaper, scrapedTemplate, galleyOptions));
+                setHasEdits(false);
               }
             }}
           />
