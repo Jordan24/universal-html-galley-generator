@@ -1,6 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { ParsedFigure } from '../../../shared/types/galleyTypes';
 import { stripTags, cleanUpHtmlTags } from './pdfParser';
+import { isSectionHeading } from './headingDetector';
 
 interface TextLine {
   y: number;
@@ -230,14 +231,35 @@ export function extractFigureCaptionLineKeys(pageLinesMap: { pageNum: number; li
         currentCaption = txt;
         figureCaptionLineKeys.add(`${p.pageNum}_${l.y}`);
       } else if (currentFigNum !== null) {
-        const isContinuation = /^\s*\(Source:|\bphoto by\b|\btaken\b/i.test(plainTxt) ||
-          (!plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b|\bMethods\b)/i) &&
-           (currentCaption.endsWith('-') || !stripTags(currentCaption).trim().endsWith('.') || plainTxt.startsWith('(') || plainTxt.startsWith('by ')));
+        const plainCap = stripTags(currentCaption).trim();
+        const openParenCount = (plainCap.match(/\(/g) || []).length;
+        const closeParenCount = (plainCap.match(/\)/g) || []).length;
+        const hasUnclosedParen = openParenCount > closeParenCount;
+
+        const isHeading = isSectionHeading(plainTxt);
+
+        const isContinuation =
+          !isHeading &&
+          (hasUnclosedParen ||
+            /^\s*\(Source:|\bphoto by\b|\btaken\b/i.test(plainTxt) ||
+            currentCaption.endsWith('-') ||
+            !plainCap.endsWith('.') ||
+            plainTxt.startsWith('(') ||
+            plainTxt.startsWith('by ') ||
+            /^(19|20)\d{2}/.test(plainTxt));
 
         if (isContinuation) {
           currentCaption += ' ' + txt;
           figureCaptionLineKeys.add(`${p.pageNum}_${l.y}`);
-          if (plainTxt.includes(')') || (plainTxt.endsWith('.') && !plainTxt.match(/\b(e\.g|i\.e|vol|no|pp)\.$/i))) {
+
+          const updatedPlainCap = stripTags(currentCaption).trim();
+          const updatedOpen = (updatedPlainCap.match(/\(/g) || []).length;
+          const updatedClose = (updatedPlainCap.match(/\)/g) || []).length;
+
+          if (
+            updatedOpen <= updatedClose &&
+            (plainTxt.includes(')') || (plainTxt.endsWith('.') && !plainTxt.match(/\b(e\.g|i\.e|vol|no|pp)\.$/i)))
+          ) {
             pageCapMap.set(currentFigNum, cleanUpHtmlTags(currentCaption));
             currentFigNum = null;
             currentCaption = '';

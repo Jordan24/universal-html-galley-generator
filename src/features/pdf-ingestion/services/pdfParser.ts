@@ -4,6 +4,7 @@ import { linkifyHtml, consolidateAdjacentAnchors } from '../../../shared/utils/l
 
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { extractFiguresFromPdf, extractFigureCaptionLineKeys } from './figureExtractor';
+import { isSectionHeading } from './headingDetector';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -314,14 +315,14 @@ function extractStructureFromPageLines(
         continue;
       }
       // Stop abstract mode if encountering a clear section heading
-      if (plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b)/i)) {
+      if (isSectionHeading(plainTxt)) {
         mode = 'BODY';
         break;
       }
       headerLineKeys.add(lineKey);
       abstractRaw += (abstractRaw ? ' ' : '') + txt;
     } else if (mode === 'KEYWORDS') {
-      if ((lastKwY > 0 && lastKwY - l.y > 40) || plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b)/i)) {
+      if ((lastKwY > 0 && lastKwY - l.y > 40) || isSectionHeading(plainTxt)) {
         mode = 'BODY';
         break;
       }
@@ -422,8 +423,7 @@ function extractStructureFromPageLines(
       if (!plainTxt || l.y < 55 || l.y > 740 || headerLineKeys.has(lineKey) || footnoteLineKeys.has(lineKey) || figureCaptionLineKeys.has(lineKey)) return;
 
       // Heading Detection (Numbered, Roman, or short title-cased lines)
-      const isHeading = plainTxt.match(/^(\d+\.|\b[I|V|X]+\.|\bIntroduction\b|\bBackground\b|\bMethods\b|\bResults\b|\bDiscussion\b|\bConclusion\b|\bReferences\b|\bWorks Cited\b|\bAcknowledgements\b)/i) ||
-                        (plainTxt.length < 55 && plainTxt === plainTxt.toUpperCase() && plainTxt.length > 3);
+      const isHeading = isSectionHeading(plainTxt);
 
       if (isHeading) {
         pushCurrentParagraph();
