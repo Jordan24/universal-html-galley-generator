@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileCheck, X, FileText } from 'lucide-react';
+import { Upload, FileCheck, FileText, RefreshCw } from 'lucide-react';
 import { ParsedPaper } from '../../../shared/types/galleyTypes';
 import { parsePdfGalleyFile } from '../services/pdfParser';
 import styles from './FileDropzone.module.css';
@@ -65,24 +65,47 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({
   if (parsedPaper) {
     const formattedSize = (parsedPaper.fileSizeBytes / (1024 * 1024)).toFixed(2) + ' MB';
     return (
-      <div className={styles.fileCard}>
-        <div className={styles.fileDetails}>
-          <FileCheck className={styles.checkIcon} size={28} />
-          <div>
-            <div className={styles.fileName}>{parsedPaper.fileName}</div>
+      <div
+        className={`${styles.dropzoneContainer} ${styles.fileUploadedContainer} ${isDragOver ? styles.dropzoneActive : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          className={styles.fileInput}
+          onChange={handleInputChange}
+        />
+        <div className={styles.dropzoneContent}>
+          <div className={styles.successIconWrapper}>
+            <FileCheck size={24} />
+          </div>
+          <div className={styles.fileInfoGroup}>
+            <div className={styles.fileName} title={parsedPaper.fileName}>
+              {parsedPaper.fileName}
+            </div>
             <div className={styles.fileMeta}>
-              {formattedSize} • {parsedPaper.pageCount} Page(s) • {parsedPaper.footnotes.length} Footnote(s) Detected
+              <span>{formattedSize}</span>
+              <span className={styles.metaDot}>•</span>
+              <span>{parsedPaper.pageCount} Page(s)</span>
+              <span className={styles.metaDot}>•</span>
+              <span>{parsedPaper.footnotes.length} Footnote(s)</span>
             </div>
           </div>
+          <div className={styles.actionButtons}>
+            <button
+              type="button"
+              className={styles.replaceButton}
+              onClick={() => fileInputRef.current?.click()}
+              title="Select a different PDF file"
+            >
+              <RefreshCw size={13} />
+              <span>Replace PDF</span>
+            </button>
+          </div>
         </div>
-        <button
-          className={styles.removeButton}
-          onClick={() => onPaperParsed(null)}
-          aria-label="Remove uploaded PDF file"
-          title="Remove file"
-        >
-          <X size={18} />
-        </button>
       </div>
     );
   }
@@ -112,7 +135,7 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({
       />
       <div className={styles.dropzoneContent}>
         <div className={styles.iconWrapper}>
-          {isLoading ? <FileText size={26} className="animate-spin" /> : <Upload size={26} />}
+          {isLoading ? <FileText size={24} className="animate-spin" /> : <Upload size={24} />}
         </div>
         <div className={styles.title}>
           {isLoading ? 'Parsing PDF Galley Structure...' : 'Upload or Drag & Drop PDF Galley'}
@@ -124,3 +147,4 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({
     </div>
   );
 };
+

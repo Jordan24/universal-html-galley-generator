@@ -6,7 +6,6 @@ import { UrlScraperForm } from './features/journal-scraper/components/UrlScraper
 import { assembleGalleyHtml } from './features/galley-builder/services/galleyAssembler';
 import { GalleyOptionsControls } from './features/galley-builder/components/GalleyOptionsControls';
 import { PreviewSandbox } from './features/preview-sandbox/components/PreviewSandbox';
-import { ExportControls } from './features/export-bundle/components/ExportControls';
 import styles from './App.module.css';
 
 export const App: React.FC = () => {
@@ -24,11 +23,37 @@ export const App: React.FC = () => {
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isScraperLoading, setIsScraperLoading] = useState(false);
   const [hasEdits, setHasEdits] = useState(false);
+  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('galley_left_panel_collapsed') === 'true';
+  });
   const [galleyOptions, setGalleyOptions] = useState<GalleyDisplayOptions>({
     showTitleInBody: true,
     showAuthorsInBody: true,
     showAbstractInBody: true,
   });
+
+  const handleToggleLeftPanel = () => {
+    setIsLeftPanelCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('galley_left_panel_collapsed', String(next));
+      return next;
+    });
+  };
+
+  // Keyboard shortcut listener (Cmd+[ or Ctrl+[) to toggle left toolbar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '[') {
+        e.preventDefault();
+        handleToggleLeftPanel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Keep DOM attribute in sync with theme state
   useEffect(() => {
@@ -74,9 +99,13 @@ export const App: React.FC = () => {
     <>
       <Header theme={theme} onToggleTheme={handleToggleTheme} />
 
-      <main className={styles.mainLayout}>
-        {/* Left Column: Input Wizard & Export Controls */}
-        <section className={styles.leftControlColumn} aria-label="Galley Generation Wizard Controls">
+      <main className={`${styles.mainLayout} ${isLeftPanelCollapsed ? styles.mainLayoutCollapsed : ''}`}>
+        {/* Left Column: Input Wizard Controls */}
+        <section
+          className={`${styles.leftControlColumn} ${isLeftPanelCollapsed ? styles.leftControlColumnCollapsed : ''}`}
+          aria-label="Galley Generation Wizard Controls"
+          aria-hidden={isLeftPanelCollapsed}
+        >
           <FileDropzone
             parsedPaper={parsedPaper}
             onPaperParsed={setParsedPaper}
@@ -96,17 +125,13 @@ export const App: React.FC = () => {
             options={galleyOptions}
             onOptionsChange={setGalleyOptions}
           />
-
-          <ExportControls
-            assembledHtml={assembledHtml}
-            paperTitle={parsedPaper?.title}
-          />
         </section>
 
         {/* Right Column: Live Isolated Preview Sandbox */}
         <section className={styles.rightPreviewColumn} aria-label="Live Galley Preview Sandbox">
           <PreviewSandbox
             assembledHtml={assembledHtml}
+            paperTitle={parsedPaper?.title}
             hasPaper={Boolean(parsedPaper)}
             hasTemplate={Boolean(scrapedTemplate)}
             onHtmlChange={(updatedHtml) => {
@@ -119,6 +144,8 @@ export const App: React.FC = () => {
                 setHasEdits(false);
               }
             }}
+            isLeftPanelCollapsed={isLeftPanelCollapsed}
+            onToggleLeftPanel={handleToggleLeftPanel}
           />
         </section>
       </main>

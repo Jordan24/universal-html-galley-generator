@@ -1,25 +1,32 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Eye, Monitor, Tablet, Smartphone, RefreshCw } from 'lucide-react';
+import { Eye, Monitor, Tablet, Smartphone, RefreshCw, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { EditorToolbar } from './EditorToolbar';
 import { getToolbarState, ToolbarState } from '../services/editorCommands';
+import { ExportControls } from '../../export-bundle/components/ExportControls';
 import styles from './PreviewSandbox.module.css';
 
 interface PreviewSandboxProps {
   assembledHtml: string | null;
+  paperTitle?: string;
   hasPaper?: boolean;
   hasTemplate?: boolean;
   onRefresh?: () => void;
   onHtmlChange?: (updatedHtml: string) => void;
+  isLeftPanelCollapsed?: boolean;
+  onToggleLeftPanel?: () => void;
 }
 
 type ViewportMode = 'desktop' | 'tablet' | 'mobile';
 
 export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
   assembledHtml,
+  paperTitle,
   hasPaper = false,
   hasTemplate = false,
   onRefresh,
   onHtmlChange,
+  isLeftPanelCollapsed = false,
+  onToggleLeftPanel,
 }) => {
   const [viewport, setViewport] = useState<ViewportMode>('desktop');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -169,42 +176,61 @@ export const PreviewSandbox: React.FC<PreviewSandboxProps> = ({
       {/* Upper Control Bar */}
       <div className={styles.toolbar}>
         <div className={styles.titleGroup}>
+          {onToggleLeftPanel && (
+            <button
+              type="button"
+              className={`${styles.toggleSidebarBtn} ${isLeftPanelCollapsed ? styles.toggleSidebarBtnHighlight : ''}`}
+              onClick={onToggleLeftPanel}
+              aria-label={isLeftPanelCollapsed ? 'Expand left toolbar section' : 'Collapse left toolbar section'}
+              title={isLeftPanelCollapsed ? 'Expand left toolbar section (⌘[ / Ctrl+[)' : 'Collapse left toolbar section (⌘[ / Ctrl+[)'}
+            >
+              {isLeftPanelCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+              {isLeftPanelCollapsed && <span className={styles.toggleBtnLabel}>Show Controls</span>}
+            </button>
+          )}
           <Eye size={18} style={{ color: 'var(--accent-primary)' }} />
           <span>Live Isolated Preview Sandbox</span>
         </div>
 
-        <div className={styles.deviceControls}>
-          <button
-            className={`${styles.deviceBtn} ${viewport === 'desktop' ? styles.deviceBtnActive : ''}`}
-            onClick={() => setViewport('desktop')}
-            aria-label="Desktop Viewport Mode"
-          >
-            <Monitor size={15} /> Desktop
-          </button>
-          <button
-            className={`${styles.deviceBtn} ${viewport === 'tablet' ? styles.deviceBtnActive : ''}`}
-            onClick={() => setViewport('tablet')}
-            aria-label="Tablet Viewport Mode"
-          >
-            <Tablet size={15} /> Tablet
-          </button>
-          <button
-            className={`${styles.deviceBtn} ${viewport === 'mobile' ? styles.deviceBtnActive : ''}`}
-            onClick={() => setViewport('mobile')}
-            aria-label="Mobile Viewport Mode"
-          >
-            <Smartphone size={15} /> Mobile
-          </button>
-          {onRefresh && (
+        <div className={styles.rightControls}>
+          <div className={styles.deviceControls}>
             <button
-              className={styles.deviceBtn}
-              onClick={handleRefresh}
-              aria-label="Refresh live preview sandbox"
-              title="Refresh preview"
+              className={`${styles.deviceBtn} ${viewport === 'desktop' ? styles.deviceBtnActive : ''}`}
+              onClick={() => setViewport('desktop')}
+              aria-label="Desktop Viewport Mode"
             >
-              <RefreshCw size={14} className={isSpinning ? 'animate-spin' : ''} />
+              <Monitor size={15} /> Desktop
             </button>
-          )}
+            <button
+              className={`${styles.deviceBtn} ${viewport === 'tablet' ? styles.deviceBtnActive : ''}`}
+              onClick={() => setViewport('tablet')}
+              aria-label="Tablet Viewport Mode"
+            >
+              <Tablet size={15} /> Tablet
+            </button>
+            <button
+              className={`${styles.deviceBtn} ${viewport === 'mobile' ? styles.deviceBtnActive : ''}`}
+              onClick={() => setViewport('mobile')}
+              aria-label="Mobile Viewport Mode"
+            >
+              <Smartphone size={15} /> Mobile
+            </button>
+            {onRefresh && (
+              <button
+                className={styles.deviceBtn}
+                onClick={handleRefresh}
+                aria-label="Refresh live preview sandbox"
+                title="Refresh preview"
+              >
+                <RefreshCw size={14} className={isSpinning ? 'animate-spin' : ''} />
+              </button>
+            )}
+          </div>
+
+          <ExportControls
+            assembledHtml={assembledHtml}
+            paperTitle={paperTitle}
+          />
         </div>
       </div>
 

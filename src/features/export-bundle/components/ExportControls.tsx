@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, FileCode, Archive, Check } from 'lucide-react';
+import { FileCode, Archive, Check } from 'lucide-react';
 import { downloadSingleFileHtml } from '../services/singleFileExport';
 import { downloadZipPackage } from '../services/zipPackageExport';
 import styles from './ExportControls.module.css';
@@ -33,35 +33,29 @@ export const ExportControls: React.FC<ExportControlsProps> = ({
   const isDisabled = !assembledHtml;
 
   return (
-    <div className={styles.cardContainer}>
-      <div className={styles.headerRow}>
-        <Download size={22} />
-        <span className={styles.title}>Export Galley Package</span>
-      </div>
+    <div className={styles.exportGroup}>
+      <button
+        className={`${styles.exportBtn} ${styles.singleFileBtn}`}
+        onClick={handleSingleDownload}
+        disabled={isDisabled}
+        aria-label="Download Standalone Single-File HTML"
+        title="Download Single-File HTML (Inlined Base64 & CSS)"
+      >
+        {downloadedSingle ? <Check size={14} /> : <FileCode size={14} />}
+        <span>{downloadedSingle ? 'Downloaded!' : 'Single-File HTML'}</span>
+      </button>
 
-      <div className={styles.buttonGrid}>
-        <button
-          className={`${styles.exportBtn} ${styles.singleFileBtn}`}
-          onClick={handleSingleDownload}
-          disabled={isDisabled}
-          aria-label="Download Standalone Single-File HTML"
-        >
-          {downloadedSingle ? <Check size={20} /> : <FileCode size={20} />}
-          <span>{downloadedSingle ? 'Downloaded!' : 'Single-File HTML'}</span>
-          <span className={styles.btnSubtext}>Inlined Base64 & CSS</span>
-        </button>
-
-        <button
-          className={`${styles.exportBtn} ${styles.zipBtn}`}
-          onClick={handleZipDownload}
-          disabled={isDisabled}
-          aria-label="Download ZIP Archive Package"
-        >
-          {downloadedZip ? <Check size={20} style={{ color: 'var(--accent-emerald)' }} /> : <Archive size={20} style={{ color: 'var(--accent-emerald)' }} />}
-          <span>{downloadedZip ? 'Downloaded!' : 'ZIP Package'}</span>
-          <span className={styles.btnSubtext}>HTML + CSS + Assets</span>
-        </button>
-      </div>
+      <button
+        className={`${styles.exportBtn} ${styles.zipBtn}`}
+        onClick={handleZipDownload}
+        disabled={isDisabled}
+        aria-label="Download ZIP Archive Package"
+        title="Download ZIP Package (HTML + CSS + Assets)"
+      >
+        {downloadedZip ? <Check size={14} /> : <Archive size={14} />}
+        <span>{downloadedZip ? 'Downloaded!' : 'ZIP Package'}</span>
+      </button>
     </div>
   );
 };
+
