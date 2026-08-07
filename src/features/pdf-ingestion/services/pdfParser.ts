@@ -6,6 +6,7 @@ import { renderSuperscriptRefHtml } from '../../galley-builder/services/footnote
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { extractFiguresFromPdf, extractFigureCaptionLineKeys } from './figureExtractor';
 import { isSectionHeading } from './headingDetector';
+import { extractBodySections } from './paragraphBuilder';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -26,9 +27,19 @@ export function normalizePdfText(text: string): string {
     .replace(/\uFB04/g, 'ffl')
     .replace(/\uFB05/g, 'ft')
     .replace(/\uFB06/g, 'st')
-    // Fix PDF font encoding corruptions where 'ti' ligature was extracted as ';' between letters
-    .replace(/([A-Z])(?:<\/?[^>]+>)*;(?:<\/?[^>]+>)*(?=[A-Z])/g, '$1TI')
-    .replace(/([a-zA-Z])(?:<\/?[^>]+>)*;(?:<\/?[^>]+>)*(?=[a-zA-Z])/g, '$1ti');
+    // Fix specific 'tt' ligatures at word boundaries (e.g., 'Christopher Hi[PUA],' -> 'Christopher Hitt,')
+    .replace(/\b([a-zA-Z]+?i)(?:<\/?[^>]+>)*[;\uFFFD\uE000-\uF8FF\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]+(?:<\/?[^>]+>)*(?=[,.\s;\?!"'\]\)]|$)/g, '$1tt')
+    .replace(/([a-zA-Z])(?:<\/?[^>]+>)*[;\uFFFD\uE000-\uF8FF\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]+(?:<\/?[^>]+>)*(?=[,.\s;\?!"'\]\)]|$)/g, '$1tt')
+    // Fix specific 'tt' words inside text (e.g. 'a[PUA]ention' or 'at[PUA]ention' -> 'attention')
+    .replace(/\b(a|at)(?:<\/?[^>]+>)*[;\uFFFD\uE000-\uF8FF\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]+(?:<\/?[^>]+>)*(ention|end|react|ract|ribute|ack|en|er|le|ern)\b/gi, 'att$2')
+    .replace(/\b(le|li|be|bu|ma|se|pa|bo|wri)(?:<\/?[^>]+>)*[;\uFFFD\uE000-\uF8FF\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]+(?:<\/?[^>]+>)*(er|le|ing|ern|en)\b/gi, '$1tt$2')
+    // Fix PDF font encoding corruptions where 'ti' ligature was extracted as ';', '5', or unprintable/PUA characters between letters
+    .replace(/([A-Z])(?:<\/?[^>]+>)*[;\uFFFD\uE000-\uF8FF\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF](?:<\/?[^>]+>)*(?=[A-Z])/g, '$1TI')
+    .replace(/([a-zA-Z])(?:<\/?[^>]+>)*[;\uFFFD\uE000-\uF8FF\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF](?:<\/?[^>]+>)*(?=[a-zA-Z])/g, '$1ti')
+    .replace(/([A-Z])(?:<\/?[^>]+>)*5(?:<\/?[^>]+>)*(?=[A-Z])/g, '$1TI')
+    .replace(/([a-zA-Z])(?:<\/?[^>]+>)*5(?:<\/?[^>]+>)*(?=[a-zA-Z])/g, '$1ti')
+    // Fix PDF font encoding corruptions where 'tt' ligature was extracted as 'U' between lowercase letters (e.g. 'seUng' -> 'setting')
+    .replace(/([a-z])(?:<\/?[^>]+>)*U(?:<\/?[^>]+>)*(?=[a-z])/g, '$1tt');
 }
 
 export function escapeHtml(str: string): string {
@@ -259,7 +270,6 @@ function extractStructureFromPageLines(
   let title = '';
   let authors: string[] = [];
   let abstract = '';
-  const sections: PaperSection[] = [];
   const fnMap = new Map<number, FootnoteItem>();
   const footnoteLineKeys = new Set<string>();
 
@@ -385,82 +395,8 @@ function extractStructureFromPageLines(
 
   const sortedFootnotes = Array.from(fnMap.values()).sort((a, b) => a.id - b.id);
 
-  // 2b. Calculate standard document body left-margin offset
-  const allMinXs: number[] = [];
-  pageLines.forEach(p => {
-    p.lines.forEach(l => {
-      const plainTxt = stripTags(l.text).trim();
-      if (plainTxt && l.y >= 55 && l.y <= 740 && !headerLineKeys.has(`${p.pageNum}_${l.y}`) && !footnoteLineKeys.has(`${p.pageNum}_${l.y}`) && !figureCaptionLineKeys.has(`${p.pageNum}_${l.y}`)) {
-        if (l.minX > 30 && l.minX < 200) {
-          allMinXs.push(l.minX);
-        }
-      }
-    });
-  });
-
-  const standardMargin = allMinXs.length > 0 ? Math.min(...allMinXs) : 72;
-
-  // 3. Body Text & Headings Extraction (55 <= Y <= 740, excluding consumed header, footnote & caption lines)
-  let currentSection: PaperSection = { heading: undefined, paragraphs: [] };
-  let currentParagraph = '';
-  let currentIsBlockQuote = false;
-
-  const pushCurrentParagraph = () => {
-    if (stripTags(currentParagraph).trim()) {
-      currentSection.paragraphs.push({
-        text: linkifyHtml(cleanUpHtmlTags(currentParagraph)),
-        isBlockQuote: currentIsBlockQuote,
-      });
-      currentParagraph = '';
-      currentIsBlockQuote = false;
-    }
-  };
-
-  pageLines.forEach((p) => {
-    p.lines.forEach(l => {
-      const txt = l.text.trim();
-      const plainTxt = stripTags(l.text).trim();
-      const lineKey = `${p.pageNum}_${l.y}`;
-      if (!plainTxt || l.y < 55 || l.y > 740 || headerLineKeys.has(lineKey) || footnoteLineKeys.has(lineKey) || figureCaptionLineKeys.has(lineKey)) return;
-
-      // Heading Detection (Numbered, Roman, or short title-cased lines)
-      const isHeading = isSectionHeading(plainTxt);
-
-      if (isHeading) {
-        pushCurrentParagraph();
-        if (currentSection.paragraphs.length > 0 || currentSection.heading) {
-          sections.push(currentSection);
-        }
-        currentSection = { heading: linkifyHtml(cleanUpHtmlTags(txt)), paragraphs: [] };
-      } else {
-        const isIndented = l.minX >= standardMargin + 18;
-
-        if (currentParagraph && currentIsBlockQuote !== isIndented) {
-          pushCurrentParagraph();
-        }
-
-        currentIsBlockQuote = isIndented;
-
-        if (currentParagraph && !currentParagraph.endsWith('-')) {
-          currentParagraph += ' ' + txt;
-        } else if (currentParagraph.endsWith('-')) {
-          currentParagraph = currentParagraph.slice(0, -1) + txt;
-        } else {
-          currentParagraph = txt;
-        }
-
-        // Paragraph break heuristic on sentence end
-        if (!isIndented && plainTxt.length < 50 && (plainTxt.endsWith('.') || plainTxt.endsWith(':') || plainTxt.endsWith(')'))) {
-          pushCurrentParagraph();
-        }
-      }
-    });
-  });
-
-  pushCurrentParagraph();
-  if (currentSection.paragraphs.length > 0 || currentSection.heading) {
-    sections.push(currentSection);
-  }
+  // 3. Body Text & Headings Extraction via ParagraphBuilder
+  const sections = extractBodySections(pageLines, headerLineKeys, footnoteLineKeys, figureCaptionLineKeys);
 
   // 4. Inject Footnote Superscript Anchors into Body Paragraphs
   const finalSections = injectBodyFootnoteSuperscripts(sections, sortedFootnotes);
